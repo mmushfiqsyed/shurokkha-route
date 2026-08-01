@@ -1,0 +1,26 @@
+
+hazard_assessment_task:
+  description: >
+    Given this scenario input: {scenario}, classify disaster type, severity (1-5), primary risks and zone.
+  expected_output: >
+    A structured hazard assessment containing disaster_type, severity from 1 to 5, zone, secondary_risks, and notes.
+  agent: hazard_agent
+
+
+commander_task:
+  description: >
+    Using the hazard assessment, decide the single top-priority action for the affected person. EXplicitly rely on the hazard assessment and avoid reclassifications.
+  expected_output: >
+    A structured response decision containing the priority action, destination, and reasoning.
+  agent: commander
+  context: [hazard_assessment_task]
+
+
+advisory_task:
+  description: >
+    Rewrite the Commander's decision as plain-language guidance for a civilian, given user context: {user_context}.
+  expected_output: >
+    Max 3 short numbered steps in plain language.
+  agent: advisory_agent
+  context: [commander_task]
+

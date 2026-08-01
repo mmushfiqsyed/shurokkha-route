@@ -10,12 +10,29 @@
 !.yarn/releases
 !.yarn/versions
 
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+logs/
+ai-service/logs
+ai-service/.venv
+
+# Environment
+.env
+ai-service/.env
+
 # testing
 /coverage
 
 # next.js
 /.next/
 /out/
+
+
+# Next.js
+node_modules/
+.next/
 
 # production
 /build
