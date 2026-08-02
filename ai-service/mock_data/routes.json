@@ -1,0 +1,81 @@
+[
+  {
+    "id": "rte-001",
+    "name": "Dhaka-Mirpur Corridor",
+    "path": [
+      { "lat": 23.774, "lng": 90.375 },
+      { "lat": 23.790, "lng": 90.370 },
+      { "lat": 23.810, "lng": 90.368 },
+      { "lat": 23.822, "lng": 90.365 }
+    ],
+    "status": "Safe",
+    "lastUpdated": "2026-07-03T06:00:00Z",
+    "destinationShelterId": "shel-002"
+  },
+  {
+    "id": "rte-002",
+    "name": "Dhaka-Chittagong Highway",
+    "path": [
+      { "lat": 23.774, "lng": 90.375 },
+      { "lat": 23.500, "lng": 90.500 },
+      { "lat": 23.000, "lng": 90.800 },
+      { "lat": 22.500, "lng": 91.000 },
+      { "lat": 22.335, "lng": 91.815 }
+    ],
+    "status": "Blocked",
+    "lastUpdated": "2026-07-03T05:30:00Z",
+    "destinationShelterId": "shel-003"
+  },
+  {
+    "id": "rte-003",
+    "name": "Dhaka-Sylhet Route",
+    "path": [
+      { "lat": 23.774, "lng": 90.375 },
+      { "lat": 24.100, "lng": 90.500 },
+      { "lat": 24.500, "lng": 91.000 },
+      { "lat": 24.898, "lng": 91.875 }
+    ],
+    "status": "Flooded",
+    "lastUpdated": "2026-07-03T04:00:00Z",
+    "destinationShelterId": "shel-004"
+  },
+  {
+    "id": "rte-004",
+    "name": "Khulna-Barisal Coastal Road",
+    "path": [
+      { "lat": 22.845, "lng": 89.540 },
+      { "lat": 22.800, "lng": 89.900 },
+      { "lat": 22.750, "lng": 90.100 },
+      { "lat": 22.701, "lng": 90.353 }
+    ],
+    "status": "Safe",
+    "lastUpdated": "2026-07-03T06:15:00Z",
+    "destinationShelterId": "shel-005"
+  },
+  {
+    "id": "rte-005",
+    "name": "Rajshahi-Rangpur Highway",
+    "path": [
+      { "lat": 24.374, "lng": 88.604 },
+      { "lat": 24.900, "lng": 88.900 },
+      { "lat": 25.300, "lng": 89.000 },
+      { "lat": 25.746, "lng": 89.251 }
+    ],
+    "status": "Blocked",
+    "lastUpdated": "2026-07-03T03:45:00Z",
+    "destinationShelterId": "shel-006"
+  },
+  {
+    "id": "rte-006",
+    "name": "Mirpur-Khulna Supply Line",
+    "path": [
+      { "lat": 23.822, "lng": 90.365 },
+      { "lat": 23.500, "lng": 90.000 },
+      { "lat": 23.200, "lng": 89.800 },
+      { "lat": 22.845, "lng": 89.540 }
+    ],
+    "status": "Safe",
+    "lastUpdated": "2026-07-03T06:00:00Z",
+    "destinationShelterId": "shel-005"
+  }
+]

@@ -1,26 +1,122 @@
-
 hazard_assessment_task:
   description: >
-    Given this scenario input: {scenario}, classify disaster type, severity (1-5), primary risks and zone.
+    Given the following disaster scenario: {scenario}, classify disaster
+    type, severity (1-5), primary risks and zone.
+
   expected_output: >
-    A structured hazard assessment containing disaster_type, severity from 1 to 5, zone, secondary_risks, and notes.
+    A structured hazard assessment containing disaster_type, severity from
+    1 to 5, zone, secondary_risks, and notes.
+
   agent: hazard_agent
+
+
+logistics_and_shelter_task:
+  description: >
+    Given the hazard assessment and the user's location, evaluate nearby
+    shelters using the available shelter data.
+
+    Rank viable shelters based on availability, capacity, and relevant
+    inventory.
+
+    Do not recommend Full shelters as primary destinations.
+
+    Clearly identify At Risk shelters as risky alternatives rather than
+    treating them as equivalent to Active shelters.
+
+    Do not invent shelter capacity, inventory, status, or availability.
+
+    User context: {user_context}
+
+  expected_output: >
+    A structured shelter decision containing a ranked list of candidate
+    shelters, their status, capacity information, inventory information,
+    and any relevant concerns.
+
+  agent: logistics_and_shelter_agent
+  context: [hazard_assessment_task]
+
+
+routing_and_operations_task:
+  description: >
+    Using the hazard assessment and shelter assessment, determine
+    which candidate shelter can actually be reached safely.
+
+    For each candidate shelter being considered, identify routes whose
+    destinationShelterId matches that shelter.
+
+    Use route_status_check to check whether those routes are Safe,
+    Flooded, or Blocked.
+
+    Use route_connectivity to verify that the selected route actually
+    connects near the user's current location and the destination shelter.
+
+    A route being marked Safe is not sufficient by itself.
+    The route must also connect the user's current location to the
+    destination shelter.
+
+    If the primary shelter cannot be reached safely, check the alternate
+    shelters until a safe connected route is found or all candidates
+    have been exhausted.
+
+    Also use asset_lookup with the user's current coordinates to identify
+    ambulances and rescue teams near the user.
+
+    Also check assets assigned to the selected shelter.
+
+    Do not invent routes, connectivity, assets, or route status.
+
+  expected_output: >
+    A structured routing assessment containing the selected shelter,
+    selected route, safe routes, blocked routes, available assets,
+    and notes.
+
+  agent: routing_and_operations_agent
+
+  context: [hazard_assessment_task, logistics_and_shelter_task]
 
 
 commander_task:
   description: >
-    Using the hazard assessment, decide the single top-priority action for the affected person. EXplicitly rely on the hazard assessment and avoid reclassifications.
+    Using the hazard assessment, shelter assessment, routing assessment,
+    and user's location, determine the safest immediate action.
+
+    Treat the shelter and routing assessments as the available operational
+    information.
+
+    Do not recommend a shelter whose status is At Risk or Full.
+
+    Do not recommend a route whose status is Flooded or Blocked.
+
+    Do not invent shelter availability, route status, rescue assets,
+    emergency assistance, or other resources.
+
+    If no safe destination or route can be established, explicitly state
+    that and recommend the safest immediate action without inventing
+    information.
+
+    Prioritize life safety above convenience or distance.
+
   expected_output: >
-    A structured response decision containing the priority action, destination, and reasoning.
+    A structured commander's decision containing the priority action,
+    destination if one is verified safe, route if one is verified safe,
+    and a short justification.
+
   agent: commander
-  context: [hazard_assessment_task]
+
+  context: [hazard_assessment_task, logistics_and_shelter_task, routing_and_operations_task]
 
 
 advisory_task:
   description: >
-    Rewrite the Commander's decision as plain-language guidance for a civilian, given user context: {user_context}.
+    Rewrite the Commander's decision as plain-language guidance for a
+    civilian, given user context: {user_context}.
+
+    Do not add information, resources, assistance, destinations, routes,
+    or actions that are not present in the Commander's decision.
+
   expected_output: >
     Max 3 short numbered steps in plain language.
-  agent: advisory_agent
-  context: [commander_task]
 
+  agent: advisory_agent
+
+  context: [commander_task]

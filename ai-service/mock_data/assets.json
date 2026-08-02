@@ -1,0 +1,55 @@
+[
+  {
+    "id": "ast-001",
+    "type": "Food Truck",
+    "name": "Relief Truck Alpha",
+    "coordinates": { "lat": 23.790, "lng": 90.370 },
+    "status": "In Transit",
+    "destinationId": "shel-002"
+  },
+  {
+    "id": "ast-002",
+    "type": "Ambulance",
+    "name": "MedEvac One",
+    "coordinates": { "lat": 23.800, "lng": 90.380 },
+    "status": "Available"
+  },
+  {
+    "id": "ast-003",
+    "type": "Food Truck",
+    "name": "Supply Truck Bravo",
+    "coordinates": { "lat": 22.850, "lng": 89.550 },
+    "status": "In Transit",
+    "destinationId": "shel-005"
+  },
+  {
+    "id": "ast-004",
+    "type": "Ambulance",
+    "name": "MedEvac Two",
+    "coordinates": { "lat": 24.898, "lng": 91.875 },
+    "status": "Deployed",
+    "destinationId": "shel-004"
+  },
+  {
+    "id": "ast-005",
+    "type": "Rescue Team",
+    "name": "Swift Water Rescue Unit",
+    "coordinates": { "lat": 24.000, "lng": 91.000 },
+    "status": "In Transit",
+    "destinationId": "shel-004"
+  },
+  {
+    "id": "ast-006",
+    "type": "Food Truck",
+    "name": "Relief Truck Charlie",
+    "coordinates": { "lat": 22.701, "lng": 90.353 },
+    "status": "Available"
+  },
+  {
+    "id": "ast-007",
+    "type": "Rescue Team",
+    "name": "Urban Search & Rescue",
+    "coordinates": { "lat": 23.774, "lng": 90.375 },
+    "status": "Available"
+  }
+]

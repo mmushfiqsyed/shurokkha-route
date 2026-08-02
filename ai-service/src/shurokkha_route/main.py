@@ -2,7 +2,7 @@
 import io
 import sys
 import warnings
-
+import json
 from datetime import datetime
 from pathlib import Path
 
@@ -10,22 +10,46 @@ from shurokkha_route.crew import Shurokkha_Route
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 
+base = Path(__file__).resolve().parent.parent.parent.parent
 
-def kickoff():
-    inputs = {
-        "scenario": "A flash flood is occurring in Sylhet, Bangladesh. Water is rising at 30 cm/hr and several local roads are already flooded. The nearest shelter is 2 km away.",
-        "user_context": "the user is with an elderly family member with limited mobility. They have access to a car."
+shelters = json.loads(
+    (base / "src/data/shelters.json").read_text()
+)
+
+routes = json.loads(
+    (base / "src/data/routes.json").read_text()
+)
+
+assets = json.loads(
+    (base / "src/data/assets.json").read_text()
+)
+
+input1 = {
+    "scenario": {
+        "disaster_type": "Flood",
+        "location": "Sylhet",
+        "description": "Water rising at 30cm/hr"
+    },
+    "user_context": {
+        "location": {"lat": 24.898, "lng": 91.875},
+        "people": 2,
+        "mobility": "limited"
+    },
+    "system_state": {
+        "shelters": shelters,
+        "routes": routes,
+        "assets": assets
     }
+}
+def kickoff():
+    inputs = input1
 
     result = Shurokkha_Route().crew().kickoff(inputs=inputs)
     save_run_log(inputs, result)
 
 
 def train():
-    inputs = {
-        "scenario": "A flash flood is occurring in Sylhet, Bangladesh. Water is rising at 30 cm/hr and several local roads are already flooded. The nearest shelter is 2 km away. The affected person is caring for an elderly family member with limited mobility. Electricity is still active in the area, and the person has access to a car but cannot safely carry the family member without assistance.",
-        "user_context": "elderly family member, limited mobility"
-    }
+    inputs = input1
     Shurokkha_Route().crew().train(n_iterations=int(sys.argv[1]), filename=sys.argv[2], inputs=inputs)
 
 def save_run_log(inputs,result):
@@ -37,7 +61,7 @@ def save_run_log(inputs,result):
     
     with io.open(log_file, "w", encoding="utf-8") as f:
         f.write("=" * 60 +"\n")
-        f.write("Crew Run Log Surokkha Route\n")
+        f.write("Crew Run Log Shurokkha Route\n")
         f.write(f"Time: {datetime.now()}\n")
         f.write("=" *60 + "\n\n")
         
@@ -68,9 +92,6 @@ def replay():
     Shurokkha_Route().crew().replay(task_id=sys.argv[1])
 
 def test():
-    inputs = {
-        "scenario": "A flash flood is occurring in Sylhet, Bangladesh. Water is rising at 30 cm/hr and several local roads are already flooded. The nearest shelter is 2 km away. The affected person is caring for an elderly family member with limited mobility. Electricity is still active in the area, and the person has access to a car but cannot safely carry the family member without assistance.",
-        "user_context": "elderly family member, limited mobility"
-    }
+    inputs = input1
 
     Shurokkha_Route().crew().test(n_iterations=int(sys.argv[1]), eval_llm=sys.argv[2], inputs=inputs)
