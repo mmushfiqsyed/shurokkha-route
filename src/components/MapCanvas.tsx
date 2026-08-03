@@ -9,6 +9,7 @@ import type { Shelter, Route, Asset, Coordinates } from "@/types";
 import sheltersJson from "@/data/shelters.json";
 import routesJson from "@/data/routes.json";
 import assetsJson from "@/data/assets.json";
+import { routeCrossesWater, waterBodiesData } from "@/lib/geo";
 
 const sheltersData = sheltersJson as Shelter[];
 const routesData = routesJson as Route[];
@@ -58,6 +59,8 @@ export default function MapCanvas({ steps, recommendation }: MapCanvasProps) {
   const recommendedShelter = recommendation?.shelter ?? null;
   const recommendedRoute = recommendation?.route ?? null;
   const recommendedAssets = recommendation?.assets ?? [];
+
+  const recommendedRouteCrossing = recommendedRoute ? routeCrossesWater(recommendedRoute) : null;
 
   const checkedRoutes: Route[] = [];
   const checkedShelters: Shelter[] = [];
@@ -118,6 +121,18 @@ export default function MapCanvas({ steps, recommendation }: MapCanvasProps) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
+        {waterBodiesData.map((water) => (
+          <Polyline
+            key={water.id}
+            positions={water.path.map((p) => [p.lat, p.lng] as [number, number])}
+            color="#60a5fa"
+            weight={3}
+            opacity={0.55}
+          >
+            <Popup>{water.name}</Popup>
+          </Polyline>
+        ))}
+
         {disasterCoords && (
           <Marker position={[disasterCoords.lat, disasterCoords.lng]} icon={DISASTER_ICON}>
             <Popup>Disaster Location</Popup>
@@ -139,21 +154,26 @@ export default function MapCanvas({ steps, recommendation }: MapCanvasProps) {
         )}
 
         {checkedRoutes.map((route) => {
-          const isRecommended = recommendedRoute?.id === route.id;
-          const color = route.status === "Safe" ? (isRecommended ? "#22c55e" : "#3b82f6") : "#ef4444";
-          const weight = isRecommended ? 5 : 3;
-          const opacity = isRecommended ? 1 : 0.7;
-          const dashArray = route.status !== "Safe" ? "10 10" : undefined;
+          const crossing = routeCrossesWater(route);
+          const isRecommended = recommendedRoute?.id === route.id && !recommendedRouteCrossing;
+          let color = route.status === "Safe" ? (isRecommended ? "#22c55e" : "#3b82f6") : "#ef4444";
+          let dashArray: string | undefined = route.status !== "Safe" ? "10 10" : undefined;
+          let popupText = `${route.name} — ${route.status}`;
+          if (crossing) {
+            color = "#dc2626";
+            dashArray = "6 8";
+            popupText = `${route.name} — BLOCKED: crosses ${crossing.name}. Evacuation routes may not cross water bodies.`;
+          }
           return (
             <Polyline
               key={route.id}
               positions={route.path.map((p) => [p.lat, p.lng] as [number, number])}
               color={color}
-              weight={weight}
-              opacity={opacity}
+              weight={isRecommended ? 5 : 3}
+              opacity={isRecommended ? 1 : 0.7}
               dashArray={dashArray}
             >
-              <Popup>{route.name} — {route.status}</Popup>
+              <Popup>{popupText}</Popup>
             </Polyline>
           );
         })}
@@ -167,11 +187,16 @@ export default function MapCanvas({ steps, recommendation }: MapCanvasProps) {
         {recommendedRoute && (
           <Polyline
             positions={recommendedRoute.path.map((p) => [p.lat, p.lng] as [number, number])}
-            color="#22c55e"
+            color={recommendedRouteCrossing ? "#dc2626" : "#22c55e"}
             weight={6}
             opacity={1}
+            dashArray={recommendedRouteCrossing ? "6 8" : undefined}
           >
-            <Popup>Recommended Route: {recommendedRoute.name}</Popup>
+            <Popup>
+              {recommendedRouteCrossing
+                ? `Blocked: "${recommendedRoute.name}" crosses ${recommendedRouteCrossing.name}. A route crossing water is never safe.`
+                : `Recommended Route: ${recommendedRoute.name}`}
+            </Popup>
           </Polyline>
         )}
 

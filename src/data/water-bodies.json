@@ -1,0 +1,123 @@
+[
+  {
+    "id": "wb-brahmaputra",
+    "name": "Brahmaputra River",
+    "path": [
+      { "lat": 26.55, "lng": 89.70 },
+      { "lat": 26.10, "lng": 89.62 },
+      { "lat": 25.70, "lng": 89.58 },
+      { "lat": 25.30, "lng": 89.62 }
+    ]
+  },
+  {
+    "id": "wb-teesta",
+    "name": "Teesta River",
+    "path": [
+      { "lat": 26.10, "lng": 88.82 },
+      { "lat": 25.90, "lng": 88.92 },
+      { "lat": 25.70, "lng": 89.05 },
+      { "lat": 25.50, "lng": 89.18 },
+      { "lat": 25.35, "lng": 89.32 },
+      { "lat": 25.20, "lng": 89.50 }
+    ]
+  },
+  {
+    "id": "wb-jamuna",
+    "name": "Jamuna River",
+    "path": [
+      { "lat": 25.30, "lng": 89.62 },
+      { "lat": 24.90, "lng": 89.72 },
+      { "lat": 24.50, "lng": 89.80 },
+      { "lat": 24.10, "lng": 89.85 },
+      { "lat": 23.82, "lng": 89.85 }
+    ]
+  },
+  {
+    "id": "wb-ganges",
+    "name": "Ganges River",
+    "path": [
+      { "lat": 24.62, "lng": 88.20 },
+      { "lat": 24.45, "lng": 88.42 },
+      { "lat": 24.25, "lng": 88.65 },
+      { "lat": 24.05, "lng": 88.90 },
+      { "lat": 23.92, "lng": 89.30 }
+    ]
+  },
+  {
+    "id": "wb-padma",
+    "name": "Padma River",
+    "path": [
+      { "lat": 23.92, "lng": 89.30 },
+      { "lat": 23.80, "lng": 89.60 },
+      { "lat": 23.66, "lng": 89.95 },
+      { "lat": 23.48, "lng": 90.20 },
+      { "lat": 23.32, "lng": 90.35 }
+    ]
+  },
+  {
+    "id": "wb-upper-meghna",
+    "name": "Meghna River (Upper)",
+    "path": [
+      { "lat": 24.85, "lng": 91.05 },
+      { "lat": 24.50, "lng": 91.00 },
+      { "lat": 24.10, "lng": 90.95 },
+      { "lat": 23.70, "lng": 90.88 },
+      { "lat": 23.45, "lng": 90.75 }
+    ]
+  },
+  {
+    "id": "wb-lower-meghna",
+    "name": "Lower Meghna River",
+    "path": [
+      { "lat": 23.45, "lng": 90.75 },
+      { "lat": 23.20, "lng": 90.62 },
+      { "lat": 22.85, "lng": 90.60 },
+      { "lat": 22.45, "lng": 90.70 },
+      { "lat": 22.05, "lng": 90.80 },
+      { "lat": 21.75, "lng": 90.85 }
+    ]
+  },
+  {
+    "id": "wb-surma",
+    "name": "Surma River",
+    "path": [
+      { "lat": 25.05, "lng": 92.10 },
+      { "lat": 24.95, "lng": 92.00 },
+      { "lat": 24.90, "lng": 91.85 },
+      { "lat": 24.80, "lng": 91.65 },
+      { "lat": 24.68, "lng": 91.45 }
+    ]
+  },
+  {
+    "id": "wb-kushiyara",
+    "name": "Kushiyara River",
+    "path": [
+      { "lat": 25.05, "lng": 92.30 },
+      { "lat": 24.95, "lng": 92.10 },
+      { "lat": 24.85, "lng": 91.90 },
+      { "lat": 24.72, "lng": 91.60 },
+      { "lat": 24.55, "lng": 91.35 }
+    ]
+  },
+  {
+    "id": "wb-karnaphuli",
+    "name": "Karnaphuli River",
+    "path": [
+      { "lat": 22.70, "lng": 92.10 },
+      { "lat": 22.55, "lng": 92.00 },
+      { "lat": 22.40, "lng": 91.90 },
+      { "lat": 22.32, "lng": 91.80 },
+      { "lat": 22.22, "lng": 91.75 }
+    ]
+  },
+  {
+    "id": "wb-arialkhan",
+    "name": "Arial Khan River",
+    "path": [
+      { "lat": 23.35, "lng": 90.10 },
+      { "lat": 23.10, "lng": 90.05 },
+      { "lat": 22.85, "lng": 90.15 },
+      { "lat": 22.60, "lng": 90.25 }
+    ]
+  }
+]

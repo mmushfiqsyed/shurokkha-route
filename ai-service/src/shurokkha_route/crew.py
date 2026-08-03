@@ -1,4 +1,5 @@
 from typing import List
+import os
 
 from crewai import LLM, Agent, Crew, Process, Task, tools
 from crewai.project import CrewBase, agent, crew, task
@@ -6,6 +7,21 @@ from crewai.agents.agent_builder.base_agent import BaseAgent
 from pydantic import BaseModel, Field
 
 from shurokkha_route.tools.disaster_tools import AssetLookupTool, ShelterLookupTool, RouteStatusTool, NearestShelterTool, RouteConnectivityTool
+
+
+def _resolve_llm() -> LLM:
+    """Pick a model from LLM_MODEL, else a sensible default per available key."""
+    model = os.environ.get("LLM_MODEL")
+    if not model:
+        if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+            model = "gemini/gemini-3.5-flash"
+        else:
+            model = "openai/gpt-4o-mini"
+    return LLM(model=model)
+
+
+def _agent(config, **kwargs):
+    return Agent(config=config, llm=_resolve_llm(), verbose=True, **kwargs)
 
 
 class HazardAssessment(BaseModel):
@@ -49,20 +65,20 @@ class Shurokkha_Route():
 
     @agent
     def hazard_agent(self) -> Agent:
-        return Agent(config=self.agents_config['hazard_agent'], verbose=True)
+        return _agent(self.agents_config['hazard_agent'])
     @agent
     def routing_and_operations_agent(self) -> Agent:
-        return Agent(config=self.agents_config['routing_and_operations_agent'],tools=[RouteStatusTool(), RouteConnectivityTool(), AssetLookupTool()], verbose=True)
+        return _agent(self.agents_config['routing_and_operations_agent'], tools=[RouteStatusTool(), RouteConnectivityTool(), AssetLookupTool()])
     @agent
     def logistics_and_shelter_agent(self) -> Agent:
-        return Agent(config=self.agents_config['logistics_and_shelter_agent'], tools=[ShelterLookupTool(), NearestShelterTool()], verbose=True)
+        return _agent(self.agents_config['logistics_and_shelter_agent'], tools=[ShelterLookupTool(), NearestShelterTool()])
 
     @agent
     def commander(self) -> Agent:
-        return Agent(config=self.agents_config['commander'], verbose=True)
+        return _agent(self.agents_config['commander'])
     @agent
     def advisory_agent(self) -> Agent:
-        return Agent(config=self.agents_config['advisory_agent'], verbose=True)
+        return _agent(self.agents_config['advisory_agent'])
 
     @task
     def hazard_assessment_task(self) -> Task:

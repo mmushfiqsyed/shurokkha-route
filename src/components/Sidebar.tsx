@@ -1,17 +1,18 @@
 import ChatPanel from "@/components/ChatPanel";
 import TelemetryFeed from "@/components/TelemetryFeed";
-import type { CalculationStep } from "@/types";
+import type { AgentThoughtEvent, CalculationStep } from "@/types";
 
 interface SidebarProps {
   onSubmit: (message: string) => void;
   loading: boolean;
   steps: CalculationStep[];
+  thoughts: AgentThoughtEvent[];
   isProcessing: boolean;
 }
 
-export default function Sidebar({ onSubmit, loading, steps, isProcessing }: SidebarProps) {
+export default function Sidebar({ onSubmit, loading, steps, thoughts, isProcessing }: SidebarProps) {
   return (
-    <aside className="flex w-[18rem] shrink-0 flex-col gap-4 overflow-y-auto overflow-x-hidden border-r border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 p-4">
+    <aside className="flex w-[22rem] shrink-0 flex-col gap-4 overflow-y-auto overflow-x-hidden border-r border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 p-4">
       <div className="shrink-0">
         <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-red-600 text-white text-sm font-bold">
@@ -29,7 +30,7 @@ export default function Sidebar({ onSubmit, loading, steps, isProcessing }: Side
         <ChatPanel onSubmit={onSubmit} loading={loading} />
       </div>
       <div className="min-h-0 flex-1">
-        <TelemetryFeed steps={steps} isProcessing={isProcessing} />
+        <TelemetryFeed steps={steps} thoughts={thoughts} isProcessing={isProcessing} />
       </div>
     </aside>
   );

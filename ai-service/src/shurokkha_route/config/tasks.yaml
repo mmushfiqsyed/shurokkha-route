@@ -45,14 +45,21 @@ routing_and_operations_task:
     destinationShelterId matches that shelter.
 
     Use route_status_check to check whether those routes are Safe,
-    Flooded, or Blocked.
+    Flooded, or Blocked. The route_status_check output includes a
+    crossesWater flag.
+
+    A route that crosses a water body (crossesWater true) is NEVER safe.
+    Evacuation routes may not cut directly across rivers or water bodies.
+    Even if a route is marked Safe, if it crosses water it must be
+    treated as blocked and reported in blocked_routes.
 
     Use route_connectivity to verify that the selected route actually
-    connects near the user's current location and the destination shelter.
+    connects near the user's current location and the destination
+    shelter, and check its crosses_water field.
 
     A route being marked Safe is not sufficient by itself.
     The route must also connect the user's current location to the
-    destination shelter.
+    destination shelter and must not cross any water body.
 
     If the primary shelter cannot be reached safely, check the alternate
     shelters until a safe connected route is found or all candidates
@@ -86,6 +93,8 @@ commander_task:
     Do not recommend a shelter whose status is At Risk or Full.
 
     Do not recommend a route whose status is Flooded or Blocked.
+    Do not recommend a route that crosses a water body. Evacuation
+    routes may never cut directly across rivers or water bodies.
 
     Do not invent shelter availability, route status, rescue assets,
     emergency assistance, or other resources.

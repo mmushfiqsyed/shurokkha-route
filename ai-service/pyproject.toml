@@ -13,6 +13,7 @@ kickoff = "shurokkha_route.main:kickoff"
 run_crew = "shurokkha_route.main:kickoff"
 plot = "shurokkha_route.main:plot"
 run_with_trigger = "shurokkha_route.main:run_with_trigger"
+crew-server = "shurokkha_route.server:main"
 
 [build-system]
 requires = ["hatchling"]
