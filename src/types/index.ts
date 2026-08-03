@@ -56,3 +56,16 @@ export interface DisasterEvent {
   timestamp: string;
   description: string;
 }
+
+export interface CalculationStep {
+  type: string;
+  message: string;
+  data?: Record<string, unknown>;
+}
+
+export interface Recommendation {
+  shelter: Shelter | null;
+  route: Route | null;
+  assets: Asset[];
+  summary: string;
+}
