@@ -4,7 +4,17 @@ import { useState, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
 import MapCanvasClient from "@/components/MapCanvasClient";
 import { buildStepsAndRecommendation } from "@/lib/build-result";
-import type { AgentThoughtEvent, CalculationStep, CrewResultPayload, Recommendation } from "@/types";
+import type { AgentThoughtEvent, AgentThoughtKind, CalculationStep, CrewResultPayload, Recommendation } from "@/types";
+
+function normalizeThoughtPayload(
+  raw: Record<string, unknown>
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...raw };
+  if (out.tool_input !== undefined && out.toolInput === undefined) {
+    out.toolInput = out.tool_input;
+  }
+  return out;
+}
 
 function parseSSEChunk(buffer: string): { rest: string; events: { type: string; data: string }[] } {
   const events: { type: string; data: string }[] = [];
@@ -14,12 +24,18 @@ function parseSSEChunk(buffer: string): { rest: string; events: { type: string; 
     const block = rest.slice(0, idx);
     rest = rest.slice(idx + 2);
     let type = "message";
-    let data = "";
+    const dataParts: string[] = [];
     for (const line of block.split("\n")) {
-      if (line.startsWith("event:")) type = line.slice(6).trim();
-      else if (line.startsWith("data:")) data += line.slice(5).trim();
+      const trimmed = line.trim();
+      if (trimmed.startsWith("event:")) {
+        type = trimmed.slice(6).trim();
+      } else if (trimmed.startsWith("data:")) {
+        dataParts.push(trimmed.slice(5).trim());
+      }
     }
-    if (data) events.push({ type, data });
+    if (dataParts.length > 0) {
+      events.push({ type, data: dataParts.join("") });
+    }
   }
   return { rest, events };
 }
@@ -36,6 +52,8 @@ export default function DashboardPage() {
     setThoughts([]);
     setRecommendation(null);
 
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -46,15 +64,17 @@ export default function DashboardPage() {
       if (!res.ok) {
         const err = await res.json();
         setSteps([{ type: "error", message: err.error ?? "Something went wrong." }]);
+        setLoading(false);
         return;
       }
 
       if (!res.body) {
         setSteps([{ type: "error", message: "No response stream from the analysis service." }]);
+        setLoading(false);
         return;
       }
 
-      const reader = res.body.getReader();
+      reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
 
@@ -66,7 +86,13 @@ export default function DashboardPage() {
         buffer = rest;
 
         for (const event of events) {
-          const payload = JSON.parse(event.data) as Record<string, unknown>;
+          let payload: Record<string, unknown>;
+          try {
+            payload = JSON.parse(event.data) as Record<string, unknown>;
+          } catch {
+            continue;
+          }
+
           switch (event.type) {
             case "thought":
             case "agent_start":
@@ -74,37 +100,53 @@ export default function DashboardPage() {
             case "tool_start":
             case "tool_end":
             case "crew_start":
-            case "crew_end":
-              setThoughts((prev) => [
-                ...prev,
-                {
-                  kind: event.type,
-                  agent: (payload.agent as string | undefined) ?? undefined,
-                  thought: (payload.thought as string | null | undefined) ?? null,
-                  tool: (payload.tool as string | null | undefined) ?? null,
-                  toolInput: (payload.tool_input as string | null | undefined) ?? null,
-                  text: (payload.text as string | null | undefined) ?? null,
-                  output: (payload.output as string | null | undefined) ?? null,
-                  message: (payload.message as string | undefined) ?? undefined,
-                  ts: Date.now(),
-                } satisfies AgentThoughtEvent,
-              ]);
+            case "crew_end": {
+              const norm = normalizeThoughtPayload(payload);
+              const thoughtEvent: AgentThoughtEvent = {
+                kind: event.type as AgentThoughtKind,
+                agent: (norm.agent as string | undefined) ?? undefined,
+                thought: (norm.thought as string | null | undefined) ??
+                  (norm.text as string | null | undefined) ??
+                  null,
+                tool: (norm.tool as string | null | undefined) ?? null,
+                toolInput: (norm.toolInput as string | null | undefined) ??
+                  (norm.tool_input as string | null | undefined) ??
+                  null,
+                text: (norm.text as string | null | undefined) ??
+                  (norm.thought as string | null | undefined) ??
+                  null,
+                output: (norm.output as string | null | undefined) ?? null,
+                message: (norm.message as string | undefined) ?? undefined,
+                ts: Date.now(),
+              };
+              setThoughts((prev) => [...prev, thoughtEvent]);
               break;
-            case "info":
+            }
+            case "info": {
+              const infoAgent = (payload.agent as string | undefined) ?? "Crew";
+              const infoMessage = (payload.message as string | undefined) ??
+                (payload.text as string | undefined) ??
+                "";
               setThoughts((prev) => [
                 ...prev,
                 {
                   kind: "info",
-                  agent: (payload.agent as string | undefined) ?? "Crew",
-                  message: payload.message as string,
+                  agent: infoAgent,
+                  message: infoMessage,
                   ts: Date.now(),
                 } satisfies AgentThoughtEvent,
               ]);
               break;
+            }
             case "result": {
-              const built = buildStepsAndRecommendation(payload.data as unknown as CrewResultPayload);
-              setSteps(built.steps);
-              setRecommendation(built.recommendation);
+              const data = payload.data as Record<string, unknown> | undefined;
+              if (data) {
+                const built = buildStepsAndRecommendation(
+                  data as unknown as CrewResultPayload
+                );
+                setSteps(built.steps);
+                setRecommendation(built.recommendation);
+              }
               break;
             }
             case "error":
@@ -118,6 +160,13 @@ export default function DashboardPage() {
     } catch {
       setSteps([{ type: "error", message: "Failed to connect to the analysis service." }]);
     } finally {
+      if (reader) {
+        try {
+          await reader.cancel();
+        } catch {
+          // ignore cancel errors
+        }
+      }
       setLoading(false);
     }
   }, []);

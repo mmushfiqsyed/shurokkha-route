@@ -19,6 +19,24 @@ const AGENT_COLORS: Record<string, string> = {
 
 const FALLBACK_COLORS = ["#14b8a6", "#ec4899", "#6366f1", "#84cc16", "#f97316"];
 
+function normalizeAgentName(name: string): string {
+  const lower = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const map: Record<string, string> = {
+    hazardanalyst: "Hazard Analyst",
+    logisticsandshelter: "Logistics and shelter agent",
+    logisticsandshelteragent: "Logistics and shelter agent",
+    logistics: "Logistics and shelter agent",
+    routingandoperations: "Routing and operations agent",
+    routingandoperationsagent: "Routing and operations agent",
+    routing: "Routing and operations agent",
+    responsecommander: "Response Commander",
+    commander: "Response Commander",
+    advisoryagent: "Advisory agent",
+    advisory: "Advisory agent",
+  };
+  return map[lower] ?? name;
+}
+
 interface ThoughtGroup {
   agent: string;
   items: AgentThoughtEvent[];
@@ -29,7 +47,8 @@ function groupThoughts(thoughts: AgentThoughtEvent[]): ThoughtGroup[] {
   const order: string[] = [];
   const map = new Map<string, AgentThoughtEvent[]>();
   for (const t of thoughts) {
-    const key = t.agent ?? "Crew";
+    const raw = t.agent ?? "Crew";
+    const key = normalizeAgentName(raw);
     if (!map.has(key)) {
       map.set(key, []);
       order.push(key);
@@ -82,9 +101,12 @@ export default function TelemetryFeed({ steps, thoughts, isProcessing }: Telemet
             </div>
             {group.items.map((item, index) => (
               <div
-                key={index}
+                key={`${group.agent}-${item.kind}-${index}-${item.ts}`}
                 className="ml-3.5 border-l-2 pl-2"
-                style={{ borderColor: `${group.color}55` }}
+                style={{
+                  borderColor: `${group.color}55`,
+                  animation: "thoughtIn 0.25s ease-out both",
+                }}
               >
                 {item.kind === "thought" && (
                   <div className="text-xs text-zinc-600 dark:text-zinc-300">

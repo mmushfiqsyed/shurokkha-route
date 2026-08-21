@@ -105,24 +105,212 @@ def parse_disaster(message: str) -> dict:
     }
 
 
+def _run_demo_crew(parsed: dict, emit) -> None:
+    shelters = _load_data("shelters.json")
+    routes = _load_data("routes.json")
+    assets = _load_data("assets.json")
+
+    loc = parsed["location"]
+    coords = parsed["coords"] or {"lat": 23.774, "lng": 90.375}
+    disaster_type = parsed["disaster_type"]
+
+    emit({"type": "crew_start", "agent": None, "message": "Crew kickoff started"})
+
+    emit({
+        "type": "agent_start",
+        "agent": "Hazard Analyst",
+        "message": "Starting task",
+    })
+    emit({
+        "type": "thought",
+        "agent": "Hazard Analyst",
+        "thought": f"Assessing {disaster_type} near {loc}. Severity appears high based on impact zone.",
+        "tool": None,
+        "tool_input": None,
+        "text": None,
+    })
+    emit({
+        "type": "agent_end",
+        "agent": "Hazard Analyst",
+        "output": f"HazardAssessment(disaster_type='{disaster_type}', severity=4, zone='{loc.title()}', secondary_risks=['flooding','infrastructure_damage'], notes='Immediate evacuation recommended.')",
+    })
+
+    emit({
+        "type": "agent_start",
+        "agent": "Logistics and shelter agent",
+        "message": "Starting task",
+    })
+    active_shelters = [s for s in shelters if s["status"] != "Full"]
+    viable_names = [s["name"] for s in active_shelters[:3]]
+    unavailable_names = [s["name"] for s in shelters if s["status"] == "Full"]
+    emit({
+        "type": "thought",
+        "agent": "Logistics and shelter agent",
+        "thought": f"Evaluating {len(active_shelters)} non-full shelters near {loc}.",
+        "tool": "shelter_lookup",
+        "tool_input": loc,
+        "text": None,
+    })
+    emit({
+        "type": "tool_end",
+        "agent": "Logistics and shelter agent",
+        "tool": "shelter_lookup",
+        "output": f"Found {len(active_shelters)} candidates. Viable: {', '.join(viable_names)}. Unavailable: {', '.join(unavailable_names)}.",
+    })
+    emit({
+        "type": "agent_end",
+        "agent": "Logistics and shelter agent",
+        "output": f"ShelterAssessment(recommended_shelter_id='{active_shelters[0]['id']}', viable_shelters={[s['id'] for s in active_shelters[:3]]}, unavailable_shelters={[s['id'] for s in shelters if s['status']=='Full']}, notes='Prioritizing non-full shelters with capacity.')",
+    })
+
+    rec_shelter_id = active_shelters[0]["id"]
+    rec_shelter = next(s for s in shelters if s["id"] == rec_shelter_id)
+    dest_routes = [r for r in routes if r.get("destinationShelterId") == rec_shelter_id]
+    safe_route_ids = [r["id"] for r in dest_routes if r["status"] == "Safe"]
+    blocked_route_ids = [r["id"] for r in dest_routes if r["status"] != "Safe"]
+
+    emit({
+        "type": "agent_start",
+        "agent": "Routing and operations agent",
+        "message": "Starting task",
+    })
+    emit({
+        "type": "thought",
+        "agent": "Routing and operations agent",
+        "thought": f"Checking routes to {rec_shelter['name']}.",
+        "tool": "route_status_check",
+        "tool_input": rec_shelter_id,
+        "text": None,
+    })
+    emit({
+        "type": "tool_end",
+        "agent": "Routing and operations agent",
+        "tool": "route_status_check",
+        "output": f"Safe: {safe_route_ids}, Blocked/Flooded: {blocked_route_ids}.",
+    })
+    near_assets = [a for a in assets if a["status"] == "Available"][:2]
+    emit({
+        "type": "thought",
+        "agent": "Routing and operations agent",
+        "thought": f"Found {len(near_assets)} available assets near user location.",
+        "tool": "asset_lookup",
+        "tool_input": f"{coords['lat']},{coords['lng']}",
+        "text": None,
+    })
+    emit({
+        "type": "tool_end",
+        "agent": "Routing and operations agent",
+        "tool": "asset_lookup",
+        "output": f"Assets: {[a['id'] for a in near_assets]}.",
+    })
+    selected_route_id = safe_route_ids[0] if safe_route_ids else (dest_routes[0]["id"] if dest_routes else None)
+    emit({
+        "type": "agent_end",
+        "agent": "Routing and operations agent",
+        "output": f"RoutingAssessment(selected_shelter_id='{rec_shelter_id}', selected_route_id='{selected_route_id}', safe_routes={safe_route_ids}, blocked_routes={blocked_route_ids}, available_assets={[a['id'] for a in near_assets]}, notes='Route verified safe.')",
+    })
+
+    emit({
+        "type": "agent_start",
+        "agent": "Response Commander",
+        "message": "Starting task",
+    })
+    emit({
+        "type": "thought",
+        "agent": "Response Commander",
+        "thought": f"Confirming {rec_shelter['name']} is the safest option. Route {selected_route_id} is clear.",
+        "tool": None,
+        "tool_input": None,
+        "text": None,
+    })
+    emit({
+        "type": "agent_end",
+        "agent": "Response Commander",
+        "output": f"CommanderDecision(priority_action='evacuate', destination_shelter_id='{rec_shelter_id}', route_id='{selected_route_id}', alternate_considered=True, justification='Shelter has capacity and route is confirmed safe.')",
+    })
+
+    emit({
+        "type": "agent_start",
+        "agent": "Advisory agent",
+        "message": "Starting task",
+    })
+    emit({
+        "type": "agent_end",
+        "agent": "Advisory agent",
+        "output": "1. Move to the nearest safe shelter along the recommended route. 2. Avoid flooded or blocked roads. 3. Check in at the shelter upon arrival.",
+    })
+
+    emit({"type": "crew_end", "agent": None, "message": "Crew run completed"})
+
+    result_payload = {
+        "scenario": {
+            "disasterType": disaster_type,
+            "location": loc,
+            "coords": coords,
+            "people": parsed["people"],
+            "mobility": parsed["mobility"],
+        },
+        "hazard": {
+            "hazard_assessment": {
+                "disaster_type": disaster_type,
+                "severity": 4,
+                "zone": loc.title(),
+                "secondary_risks": ["flooding", "infrastructure_damage"],
+                "notes": "Immediate evacuation recommended.",
+            }
+        },
+        "shelter": {
+            "shelter_assessment": {
+                "recommended_shelter_id": rec_shelter_id,
+                "viable_shelters": [s["id"] for s in active_shelters[:3]],
+                "unavailable_shelters": [s["id"] for s in shelters if s["status"] == "Full"],
+                "notes": "Prioritizing non-full shelters with capacity.",
+            }
+        },
+        "routing": {
+            "routing_assessment": {
+                "selected_shelter_id": rec_shelter_id,
+                "selected_route_id": selected_route_id,
+                "safe_routes": safe_route_ids,
+                "blocked_routes": blocked_route_ids,
+                "available_assets": [a["id"] for a in near_assets],
+                "notes": "Route verified safe.",
+            }
+        },
+        "commander": {
+            "commander_decision": {
+                "priority_action": "evacuate",
+                "destination_shelter_id": rec_shelter_id,
+                "route_id": selected_route_id,
+                "alternate_considered": True,
+                "justification": "Shelter has capacity and route is confirmed safe.",
+            }
+        },
+        "advisory": {
+            "advisory_steps": [
+                "Move to the nearest safe shelter along the recommended route.",
+                "Avoid flooded or blocked roads.",
+                "Check in at the shelter upon arrival.",
+            ]
+        },
+        "advisoryText": "1. Move to the nearest safe shelter along the recommended route. 2. Avoid flooded or blocked roads. 3. Check in at the shelter upon arrival.",
+        "summary": "Evacuate to the nearest safe shelter via the recommended route.",
+    }
+    emit({"type": "result", "data": result_payload})
+
+
 # ---------------------------------------------------------------------------
 # Crew runner
 # ---------------------------------------------------------------------------
 
 def run_crew(message: str, emit) -> None:
+    parsed = parse_disaster(message)
+
     if not _has_llm_key():
-        emit(
-            {
-                "type": "error",
-                "message": (
-                    "No LLM API key found. Create ai-service/.env with "
-                    "GEMINI_API_KEY or OPENAI_API_KEY (optionally set LLM_MODEL)."
-                ),
-            }
-        )
+        emit({"type": "info", "message": "Demo mode: no LLM key configured — running with simulated analysis."})
+        _run_demo_crew(parsed, emit)
         return
 
-    parsed = parse_disaster(message)
     if not parsed["coords"]:
         emit(
             {

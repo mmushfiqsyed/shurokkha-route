@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { MapContainer, TileLayer, ZoomControl, Marker, Polyline, Popup } from "react-leaflet";
+import { useEffect } from "react";
+import { MapContainer, TileLayer, ZoomControl, Marker, Polyline, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import type { CalculationStep, Recommendation } from "@/types";
-import type { Shelter, Route, Asset, Coordinates } from "@/types";
+import type { Shelter, Route, Asset } from "@/types";
 import sheltersJson from "@/data/shelters.json";
 import routesJson from "@/data/routes.json";
 import assetsJson from "@/data/assets.json";
@@ -32,9 +32,9 @@ const DISASTER_ICON = L.divIcon({
 
 const SHELTER_ICON = L.divIcon({
   className: "custom-marker",
-  html: '<div style="background:#22c55e;width:14px;height:14px;border-radius:2px;border:2px solid white;box-shadow:0 0 6px rgba(34,197,94,0.5)"></div>',
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
+  html: '<div style="background:#22c55e;width:16px;height:16px;border-radius:3px;border:2px solid white;box-shadow:0 0 8px rgba(34,197,94,0.6)"></div>',
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
 });
 
 const ASSET_ICON = L.divIcon({
@@ -44,82 +44,92 @@ const ASSET_ICON = L.divIcon({
   iconAnchor: [6, 6],
 });
 
+function MapController({ recommendedShelter }: { recommendedShelter: Shelter | null }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.invalidateSize();
+  }, [map]);
+
+  useEffect(() => {
+    if (recommendedShelter) {
+      const center: [number, number] = [
+        recommendedShelter.coordinates.lat,
+        recommendedShelter.coordinates.lng,
+      ];
+      map.flyTo(center, 10, { duration: 1.5 });
+    }
+  }, [recommendedShelter, map]);
+
+  return null;
+}
+
 interface MapCanvasProps {
   steps: CalculationStep[];
   recommendation: Recommendation | null;
 }
 
 export default function MapCanvas({ steps, recommendation }: MapCanvasProps) {
-  const mapRef = useRef<L.Map | null>(null);
-
-  const disasterCoords: Coordinates | null = steps.length > 0
-    ? (steps[0].data as Record<string, unknown>)?.coords as Coordinates | undefined ?? null
+  const disasterCoords: { lat: number; lng: number } | null = steps.length > 0
+    ? ((steps[0].data as Record<string, unknown>)?.coords as { lat: number; lng: number } | undefined) ?? null
     : null;
 
   const recommendedShelter = recommendation?.shelter ?? null;
   const recommendedRoute = recommendation?.route ?? null;
   const recommendedAssets = recommendation?.assets ?? [];
-
   const recommendedRouteCrossing = recommendedRoute ? routeCrossesWater(recommendedRoute) : null;
 
-  const checkedRoutes: Route[] = [];
-  const checkedShelters: Shelter[] = [];
-  const checkedAssets: Asset[] = [];
+  const checkedRouteIds: Set<string> = new Set();
+  const checkedShelterIds: Set<string> = new Set();
+  const checkedAssetIds: Set<string> = new Set();
 
   for (const step of steps) {
-    if (step.type === "route_safe" || step.type === "route_blocked") {
+    if (
+      step.type === "route_safe" ||
+      step.type === "route_blocked" ||
+      step.type === "route_selected"
+    ) {
       const routeId = step.data?.routeId as string | undefined;
-      if (routeId) {
-        const route = routesData.find((r) => r.id === routeId);
-        if (route && !checkedRoutes.find((r) => r.id === route.id)) {
-          checkedRoutes.push(route);
-        }
-      }
+      if (routeId) checkedRouteIds.add(routeId);
     }
     if (step.type === "shelter_selected" || step.type === "shelter_evaluation") {
       const shelterId = step.data?.shelterId as string | undefined;
-      if (shelterId) {
-        const shelter = sheltersData.find((s) => s.id === shelterId);
-        if (shelter && !checkedShelters.find((s) => s.id === shelter.id)) {
-          checkedShelters.push(shelter);
-        }
+      if (shelterId) checkedShelterIds.add(shelterId);
+      const viableDetails = step.data?.viableDetails as Shelter[] | undefined;
+      if (viableDetails) {
+        for (const s of viableDetails) checkedShelterIds.add(s.id);
+      }
+      const unavailableDetails = step.data?.unavailableDetails as Shelter[] | undefined;
+      if (unavailableDetails) {
+        for (const s of unavailableDetails) checkedShelterIds.add(s.id);
       }
     }
     if (step.type === "asset_check") {
       const assets = step.data?.assets as Asset[] | undefined;
       if (assets) {
-        for (const asset of assets) {
-          if (!checkedAssets.find((a) => a.id === asset.id)) {
-            checkedAssets.push(asset);
-          }
-        }
+        for (const a of assets) checkedAssetIds.add(a.id);
       }
     }
   }
 
-  useEffect(() => {
-    if (recommendedShelter && mapRef.current) {
-      const center: [number, number] = [recommendedShelter.coordinates.lat, recommendedShelter.coordinates.lng];
-      mapRef.current.flyTo(center, 10, { duration: 1.5 });
-    }
-  }, [recommendedShelter]);
-
   return (
-    <div className="relative flex-1">
+    <div className="relative flex-1" style={{ minHeight: 0 }}>
       <MapContainer
         center={DEFAULT_CENTER}
         zoom={DEFAULT_ZOOM}
         zoomControl={false}
         className="h-full w-full"
+        style={{ height: "100%", width: "100%" }}
         maxBounds={BANGLADESH_BOUNDS}
         maxBoundsViscosity={1.0}
-        ref={mapRef}
       >
         <ZoomControl position="bottomright" />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+
+        <MapController recommendedShelter={recommendedShelter} />
 
         {waterBodiesData.map((water) => (
           <Polyline
@@ -139,38 +149,77 @@ export default function MapCanvas({ steps, recommendation }: MapCanvasProps) {
           </Marker>
         )}
 
-        {recommendedShelter && (
-          <Marker position={[recommendedShelter.coordinates.lat, recommendedShelter.coordinates.lng]} icon={SHELTER_ICON}>
-            <Popup>{recommendedShelter.name} — {recommendedShelter.status}</Popup>
-          </Marker>
-        )}
-
-        {checkedShelters.map((shelter) =>
-          shelter.id !== recommendedShelter?.id ? (
-            <Marker key={shelter.id} position={[shelter.coordinates.lat, shelter.coordinates.lng]} icon={SHELTER_ICON}>
-              <Popup>{shelter.name} — {shelter.status}</Popup>
+        {sheltersData.map((shelter) => {
+          const isRecommended = recommendedShelter?.id === shelter.id;
+          const wasChecked = checkedShelterIds.has(shelter.id);
+          const icon = isRecommended
+            ? SHELTER_ICON
+            : wasChecked
+              ? L.divIcon({
+                  className: "custom-marker",
+                  html:
+                    '<div style="background:#22c55e;width:14px;height:14px;border-radius:2px;border:2px solid white;box-shadow:0 0 6px rgba(34,197,94,0.5);opacity:0.8"></div>',
+                  iconSize: [14, 14],
+                  iconAnchor: [7, 7],
+                })
+              : L.divIcon({
+                  className: "custom-marker",
+                  html:
+                    '<div style="background:#86efac;width:10px;height:10px;border-radius:2px;border:1px solid white;opacity:0.5"></div>',
+                  iconSize: [10, 10],
+                  iconAnchor: [5, 5],
+                });
+          const remaining = shelter.maxCapacity - shelter.currentCapacity;
+          const popupLabel = isRecommended
+            ? `★ RECOMMENDED: ${shelter.name} — ${shelter.status} (${shelter.currentCapacity}/${shelter.maxCapacity}, ${remaining} spots)`
+            : wasChecked
+              ? `${shelter.name} — ${shelter.status} (${shelter.currentCapacity}/${shelter.maxCapacity})`
+              : `${shelter.name} — ${shelter.status}`;
+          return (
+            <Marker
+              key={shelter.id}
+              position={[shelter.coordinates.lat, shelter.coordinates.lng]}
+              icon={icon}
+            >
+              <Popup>{popupLabel}</Popup>
             </Marker>
-          ) : null
-        )}
+          );
+        })}
 
-        {checkedRoutes.map((route) => {
+        {routesData.map((route) => {
           const crossing = routeCrossesWater(route);
           const isRecommended = recommendedRoute?.id === route.id && !recommendedRouteCrossing;
-          let color = route.status === "Safe" ? (isRecommended ? "#22c55e" : "#3b82f6") : "#ef4444";
-          let dashArray: string | undefined = route.status !== "Safe" ? "10 10" : undefined;
-          let popupText = `${route.name} — ${route.status}`;
+          const isChecked = checkedRouteIds.has(route.id);
+          const shouldShow = isRecommended || isChecked || !recommendedRoute;
+          if (!shouldShow) return null;
+
+          let color = route.status === "Safe" ? "#3b82f6" : "#ef4444";
+          let weight = 3;
+          let opacity = 0.6;
+          let dashArray: string | undefined;
+          if (route.status !== "Safe") {
+            dashArray = "8 8";
+          }
           if (crossing) {
             color = "#dc2626";
             dashArray = "6 8";
-            popupText = `${route.name} — BLOCKED: crosses ${crossing.name}. Evacuation routes may not cross water bodies.`;
           }
+          if (isRecommended) {
+            color = "#22c55e";
+            weight = 6;
+            opacity = 1;
+            dashArray = recommendedRouteCrossing ? "6 8" : undefined;
+          }
+          const popupText = crossing
+            ? `${route.name} — BLOCKED: crosses ${crossing.name}.`
+            : `${route.name} — ${route.status}`;
           return (
             <Polyline
               key={route.id}
               positions={route.path.map((p) => [p.lat, p.lng] as [number, number])}
               color={color}
-              weight={isRecommended ? 5 : 3}
-              opacity={isRecommended ? 1 : 0.7}
+              weight={weight}
+              opacity={opacity}
               dashArray={dashArray}
             >
               <Popup>{popupText}</Popup>
@@ -178,33 +227,29 @@ export default function MapCanvas({ steps, recommendation }: MapCanvasProps) {
           );
         })}
 
-        {checkedAssets.map((asset) => (
-          <Marker key={asset.id} position={[asset.coordinates.lat, asset.coordinates.lng]} icon={ASSET_ICON}>
-            <Popup>{asset.name} — {asset.type} ({asset.status})</Popup>
-          </Marker>
-        ))}
-
-        {recommendedRoute && (
-          <Polyline
-            positions={recommendedRoute.path.map((p) => [p.lat, p.lng] as [number, number])}
-            color={recommendedRouteCrossing ? "#dc2626" : "#22c55e"}
-            weight={6}
-            opacity={1}
-            dashArray={recommendedRouteCrossing ? "6 8" : undefined}
-          >
-            <Popup>
-              {recommendedRouteCrossing
-                ? `Blocked: "${recommendedRoute.name}" crosses ${recommendedRouteCrossing.name}. A route crossing water is never safe.`
-                : `Recommended Route: ${recommendedRoute.name}`}
-            </Popup>
-          </Polyline>
-        )}
-
-        {recommendedAssets.map((asset) => (
-          <Marker key={asset.id} position={[asset.coordinates.lat, asset.coordinates.lng]} icon={ASSET_ICON}>
-            <Popup>{asset.name} — {asset.type}</Popup>
-          </Marker>
-        ))}
+        {assetsData.map((asset) => {
+          const isRecommended = recommendedAssets.some((a) => a.id === asset.id);
+          const isChecked = checkedAssetIds.has(asset.id);
+          const shouldShow = isRecommended || isChecked || !recommendation;
+          if (!shouldShow) return null;
+          const icon = isRecommended
+            ? ASSET_ICON
+            : L.divIcon({
+                className: "custom-marker",
+                html:
+                  '<div style="background:#f59e0b;width:10px;height:10px;border-radius:50%;border:2px solid white;opacity:0.5"></div>',
+                iconSize: [10, 10],
+                iconAnchor: [5, 5],
+              });
+          return (
+            <Marker key={asset.id} position={[asset.coordinates.lat, asset.coordinates.lng]} icon={icon}>
+              <Popup>
+                {asset.name} — {asset.type} ({asset.status})
+                {isRecommended ? " ★" : ""}
+              </Popup>
+            </Marker>
+          );
+        })}
       </MapContainer>
     </div>
   );
