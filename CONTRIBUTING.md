@@ -81,13 +81,36 @@ uv run python -m shurokkha_route.server
 # → http://127.0.0.1:8787
 ```
 
-**No `.env` is required** — the server auto-falls back to demo mode when no LLM API key is set. Demo mode streams synthetic agent events and returns a canned but correctly-shaped result.
+**No `.env` is required for basic testing** — the server auto-falls back to demo mode when no LLM API key is set. Demo mode streams synthetic agent events and returns a correctly-shaped result with a generated route.
 
-To use real AI, create `ai-service/.env`:
+To use real AI, create `ai-service/.env` with one of:
 ```
-GEMINI_API_KEY=...
+GEMINI_API_KEY=your_key_here
+OPENAI_API_KEY=your_key_here
+ANTHROPIC_API_KEY=your_key_here
+GROQ_API_KEY=your_key_here
 ```
-(or `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`).
+Optionally set the model: `LLM_MODEL=gemini/gemini-3.5-flash` (or `openai/gpt-4o-mini`, `anthropic/claude-sonnet-4-20250514`, etc.)
+
+### Getting an LLM API key
+
+| Provider | Free tier? | Rate limit | Sign up at |
+|----------|-----------|------------|-----------|
+| **Google Gemini** | Yes | 15 req/min, 20 req/day (free tier) | https://aistudio.google.com/apikey |
+| **Groq** | Yes | 30 req/min (free tier) | https://console.groq.com/keys |
+| OpenAI | No (paid) | Varies | https://platform.openai.com/api-keys |
+| Anthropic Claude | No (paid) | Varies | https://console.anthropic.com/ |
+
+**Quick start with Gemini (free but limited)**:
+1. Go to https://aistudio.google.com/apikey
+2. Sign in with a Google account
+3. Click **Create API Key**
+4. Create `ai-service/.env` with `GEMINI_API_KEY=AIzaSy...`
+5. Restart the server
+
+> ⚠️ Gemini free tier is limited to **20 requests/day**. The crew makes 5+ LLM calls per scenario, so you can only run ~4 scenarios per day before hitting the quota. The server auto-falls back to demo mode when quota is exhausted.
+
+**For heavy use**: Use Groq (free, 30 req/min) or a paid provider. Set `LLM_MODEL=groq/llama-3.3-70b-versatile` in `.env` for Groq.
 
 ---
 

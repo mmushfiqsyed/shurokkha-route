@@ -169,6 +169,29 @@ def _run_demo_crew(parsed: dict, emit) -> None:
     safe_route_ids = [r["id"] for r in dest_routes if r["status"] == "Safe"]
     blocked_route_ids = [r["id"] for r in dest_routes if r["status"] != "Safe"]
 
+    d_lat = coords["lat"]
+    d_lng = coords["lng"]
+    s_lat = rec_shelter["coordinates"]["lat"]
+    s_lng = rec_shelter["coordinates"]["lng"]
+
+    mid_lat = (d_lat + s_lat) / 2 + (d_lng - s_lng) * 0.15
+    mid_lng = (d_lng + s_lng) / 2 - (d_lat - s_lat) * 0.15
+    selected_route_id = "rte-demo-001"
+    selected_route = {
+        "id": selected_route_id,
+        "name": f"{loc.title()} → {rec_shelter['name']}",
+        "path": [
+            {"lat": d_lat, "lng": d_lng},
+            {"lat": mid_lat, "lng": mid_lng},
+            {"lat": s_lat, "lng": s_lng},
+        ],
+        "destinationShelterId": rec_shelter_id,
+        "status": "Safe",
+        "lastUpdated": "2026-08-21T12:00:00Z",
+    }
+    safe_route_ids = [selected_route_id]
+    blocked_route_ids = []
+
     emit({
         "type": "agent_start",
         "agent": "Routing and operations agent",
@@ -203,7 +226,7 @@ def _run_demo_crew(parsed: dict, emit) -> None:
         "tool": "asset_lookup",
         "output": f"Assets: {[a['id'] for a in near_assets]}.",
     })
-    selected_route_id = safe_route_ids[0] if safe_route_ids else (dest_routes[0]["id"] if dest_routes else None)
+    selected_route_id = "rte-demo-001"
     emit({
         "type": "agent_end",
         "agent": "Routing and operations agent",
@@ -271,6 +294,7 @@ def _run_demo_crew(parsed: dict, emit) -> None:
             "routing_assessment": {
                 "selected_shelter_id": rec_shelter_id,
                 "selected_route_id": selected_route_id,
+                "selected_route": selected_route,
                 "safe_routes": safe_route_ids,
                 "blocked_routes": blocked_route_ids,
                 "available_assets": [a["id"] for a in near_assets],
@@ -360,10 +384,44 @@ def run_crew(message: str, emit) -> None:
         result = crew.kickoff(inputs=inputs)
 
         payload = _build_result_payload(parsed, result)
-        emit({"type": "result", "data": payload})
-        emit({"type": "crew_end"})
+
+        has_valid_shelter = bool(
+            payload.get("shelter", {}).get("recommended_shelter_id")
+            or payload.get("commander", {}).get("destination_shelter_id")
+        )
+        has_valid_route = bool(
+            payload.get("routing", {}).get("selected_route_id")
+            or payload.get("routing", {}).get("selected_route")
+        )
+        if not has_valid_shelter or not has_valid_route:
+            emit(
+                {
+                    "type": "info",
+                    "message": (
+                        "CrewAI returned an incomplete result — falling back to demo analysis."
+                    ),
+                }
+            )
+            _run_demo_crew(parsed, emit)
+        else:
+            emit({"type": "result", "data": payload})
+            emit({"type": "crew_end"})
     except Exception as exc:  # noqa: BLE001 - report everything to the client
-        emit({"type": "error", "message": f"Crew run failed: {exc}"})
+        err_str = str(exc)
+        is_quota = "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower()
+        if is_quota:
+            emit(
+                {
+                    "type": "info",
+                    "message": (
+                        "LLM quota exceeded — falling back to demo analysis. "
+                        "Wait a minute and try again, or use a provider with higher limits."
+                    ),
+                }
+            )
+            _run_demo_crew(parsed, emit)
+        else:
+            emit({"type": "error", "message": f"Crew run failed: {exc}"})
     finally:
         set_sink(None)
 
@@ -392,11 +450,19 @@ def _build_result_payload(parsed: dict, result) -> dict:
         except Exception:
             return None
 
-    hazard = pydantic_dict(pick("hazard"))
-    shelter = pydantic_dict(pick("logistics", "shelter"))
-    routing = pydantic_dict(pick("routing"))
-    commander = pydantic_dict(pick("commander"))
-    advisory = pydantic_dict(pick("advisory"))
+    def json_dict(task_output) -> dict | None:
+        if task_output is None:
+            return None
+        jd = getattr(task_output, "json_dict", None)
+        if jd:
+            return jd
+        return None
+
+    hazard = pydantic_dict(pick("hazard")) or json_dict(pick("hazard"))
+    shelter = pydantic_dict(pick("logistics", "shelter")) or json_dict(pick("logistics", "shelter"))
+    routing = pydantic_dict(pick("routing")) or json_dict(pick("routing"))
+    commander = pydantic_dict(pick("commander")) or json_dict(pick("commander"))
+    advisory = pydantic_dict(pick("advisory")) or json_dict(pick("advisory"))
 
     advisory_task = pick("advisory")
     advisory_text = ""
@@ -508,7 +574,7 @@ class KickoffHandler(BaseHTTPRequestHandler):
 
                 kind = event.get("type", "info")
                 _sse(kind, event)
-                if kind in ("crew_end", "error"):
+                if kind == "crew_end":
                     break
         finally:
             RUN_LOCK.release()

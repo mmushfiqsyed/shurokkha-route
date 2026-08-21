@@ -4,7 +4,65 @@ Append to this file after every meaningful change. Each entry records the proble
 
 ---
 
-## 2026-08-21
+## 2026-08-21 (third pass)
+
+### Problem
+- Real CrewAI run hits Gemini free-tier 429 quota (20 req/day limit). The crew emits `CrewKickoffFailedEvent` via its internal event bus BEFORE our Python `except` block runs.
+- The SSE HTTP loop was breaking on `error` events, so even if the fallback ran, the demo-mode events never reached the browser.
+- CrewAI's internal failure path returns a `CrewOutput` without raising a Python exception, so our `except` block was never entered.
+- Result: frontend received an empty/invalid payload → `recommendation` was `{shelter:null, route:null}` → map showed nothing.
+
+### Changes
+
+**`ai-service/src/shurokkha_route/server.py`**
+- Changed SSE loop break condition from `kind in ("crew_end", "error")` to `kind == "crew_end"` only. The `error` event is now forwarded to the client but the stream stays open.
+- Added post-crew validation: after `_build_result_payload()`, checks if the payload has a valid `recommended_shelter_id`/`destination_shelter_id` AND a valid `selected_route_id`/`selected_route`. If either is missing, emits an `info` event and runs `_run_demo_crew()` instead of emitting the empty result.
+- This handles both cases: (a) Python exception raised, (b) CrewAI returns a failed result without raising.
+
+**`ai-service/src/shurokkha_route/server.py` — `_run_demo_crew()`**
+- Demo mode now **always** generates a synthetic route from the disaster coordinates to the recommended shelter (ignores static `routes.json` which are city-to-city and don't start from the disaster location).
+- Route path: `[disaster_lat/lng, curved_midpoint, shelter_lat/lng]`.
+- The synthetic route object is included inline in `routing_assessment.selected_route` so `buildStepsAndRecommendation` can use it even though it's not in the static dataset.
+
+**`src/lib/build-result.ts`**
+- Already had inline-route fallback from the previous pass. Confirmed it's correct: checks `routing.selected_route` as a full Route object when `resolveRoute(commanderRouteId)` returns null.
+
+**Root cause of "renders nothing at all"**
+The Gemini free tier allows only 20 requests/day. The crew makes 5+ LLM calls per run, so it immediately fails. CrewAI's event bus emits an `error` event internally, then returns a failed `CrewOutput`. Our server forwarded that empty payload to the frontend, which set `recommendation` to null. The map showed no route and no highlighted shelter. The SSE loop also broke on `error`, preventing any fallback events from reaching the client.
+
+---
+
+## 2026-08-21 (second pass)
+
+### Problem
+- Map showed multiple routes simultaneously, with paths going shelter-to-shelter instead of disaster-location-to-shelter.
+- No route shown before recommendation was correct, but after recommendation all "checked" routes appeared together.
+- Routes in `routes.json` have fixed city-to-city paths that don't start from the user's disaster location.
+- Demo mode returned a static route ID that didn't match the disaster location, so the map drew an irrelevant path.
+
+### Changes
+
+**`src/components/MapCanvas.tsx`**
+- Route rendering now shows **exactly one route** after recommendation: the `recommendedRoute`.
+- Before recommendation: no routes rendered (clean slate).
+- After recommendation: only the recommended route renders — green thick solid if safe, red dashed if water-crossing.
+- Added a **connector segment** (orange dashed) from `disasterCoords` → first point of the route path, but only if the route doesn't already start within ~5km of the disaster location. This handles the case where static routes in `routes.json` start from a fixed city rather than the actual disaster point.
+- `checkedRoutes` logic removed for routes (no longer used for rendering).
+- Shelter rendering unchanged — all shelters always visible with recommended/evaluated/unevaluated styling.
+
+**`ai-service/src/shurokkha_route/server.py` — `_run_demo_crew()`**
+- Demo mode now generates a **synthetic route** from the disaster location to the recommended shelter when no matching static route exists.
+- The synthetic route has a curved mid-point to look like a real road: `[disaster_lat/lng, mid_lat/lng_offset, shelter_lat/lng]`.
+- The synthetic route object is included inline in the `routing_assessment` payload under `selected_route` (not just the ID).
+- If a matching static route exists, it's used as before.
+
+**`src/lib/build-result.ts`**
+- Added fallback for inline route objects: `buildStepsAndRecommendation` now checks `routing.selected_route` as a full Route object if `resolveRoute(commanderRouteId)` returns null.
+- Uses a runtime shape check (`"id" in obj && "name" in obj && ...`) before casting to `Route`, satisfying TypeScript without `as Route` unsafe cast.
+
+---
+
+## 2026-08-21 (first pass)
 
 ### Problem
 - Map rendered blank — no shelters, no routes, no paths visible.

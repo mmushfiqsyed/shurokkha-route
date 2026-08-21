@@ -215,7 +215,22 @@ export function buildStepsAndRecommendation(
   }
 
   const commanderRouteId = firstString(commanderRec, "route_id");
-  const selectedRoute = commanderRouteId ? resolveRoute(commanderRouteId) : null;
+  const selectedRouteFromCommander = commanderRouteId ? resolveRoute(commanderRouteId) : null;
+  const inlineRouteRaw = routingRec?.selected_route;
+  const inlineRoute: Route | undefined =
+    inlineRouteRaw &&
+    typeof inlineRouteRaw === "object" &&
+    "id" in inlineRouteRaw &&
+    "name" in inlineRouteRaw &&
+    "path" in inlineRouteRaw &&
+    "status" in inlineRouteRaw
+      ? (inlineRouteRaw as unknown as Route)
+      : undefined;
+  const selectedRoute = selectedRouteFromCommander
+    ? selectedRouteFromCommander
+    : inlineRoute
+      ? inlineRoute
+      : null;
   if (selectedRoute) {
     steps.push({
       type: "route_selected",

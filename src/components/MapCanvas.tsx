@@ -188,44 +188,78 @@ export default function MapCanvas({ steps, recommendation }: MapCanvasProps) {
 
         {routesData.map((route) => {
           const crossing = routeCrossesWater(route);
-          const isRecommended = recommendedRoute?.id === route.id && !recommendedRouteCrossing;
+          const isRecommended = recommendedRoute?.id === route.id;
           const isChecked = checkedRouteIds.has(route.id);
-          const shouldShow = isRecommended || isChecked || !recommendedRoute;
-          if (!shouldShow) return null;
+          const hasRecommendation = !!recommendedRoute;
 
-          let color = route.status === "Safe" ? "#3b82f6" : "#ef4444";
-          let weight = 3;
-          let opacity = 0.6;
-          let dashArray: string | undefined;
-          if (route.status !== "Safe") {
-            dashArray = "8 8";
-          }
-          if (crossing) {
-            color = "#dc2626";
-            dashArray = "6 8";
-          }
           if (isRecommended) {
-            color = "#22c55e";
-            weight = 6;
-            opacity = 1;
-            dashArray = recommendedRouteCrossing ? "6 8" : undefined;
+            const color = recommendedRouteCrossing ? "#dc2626" : "#22c55e";
+            const dashArray = recommendedRouteCrossing ? "6 8" : undefined;
+            const popupText = recommendedRouteCrossing
+              ? `${route.name} — BLOCKED: crosses ${recommendedRouteCrossing.name}.`
+              : `★ Recommended: ${route.name} — ${route.status}`;
+            return (
+              <Polyline
+                key="recommended-route"
+                positions={route.path.map((p) => [p.lat, p.lng] as [number, number])}
+                color={color}
+                weight={6}
+                opacity={1}
+                dashArray={dashArray}
+              >
+                <Popup>{popupText}</Popup>
+              </Polyline>
+            );
           }
-          const popupText = crossing
-            ? `${route.name} — BLOCKED: crosses ${crossing.name}.`
-            : `${route.name} — ${route.status}`;
+
+          if (hasRecommendation) return null;
+
+          if (isChecked) {
+            const color = route.status === "Safe" ? "#3b82f6" : "#ef4444";
+            const dashArray = route.status !== "Safe" ? "8 8" : crossing ? "6 8" : undefined;
+            const popupText = crossing
+              ? `${route.name} — BLOCKED: crosses ${crossing.name}.`
+              : `${route.name} — ${route.status}`;
+            return (
+              <Polyline
+                key={route.id}
+                positions={route.path.map((p) => [p.lat, p.lng] as [number, number])}
+                color={color}
+                weight={3}
+                opacity={0.5}
+                dashArray={dashArray}
+              >
+                <Popup>{popupText}</Popup>
+              </Polyline>
+            );
+          }
+
+          return null;
+        })}
+
+        {recommendedRoute && disasterCoords && (() => {
+          const routeStart = recommendedRoute.path[0];
+          const dist = Math.hypot(
+            routeStart.lat - disasterCoords.lat,
+            routeStart.lng - disasterCoords.lng
+          );
+          if (dist < 0.05) return null;
           return (
             <Polyline
-              key={route.id}
-              positions={route.path.map((p) => [p.lat, p.lng] as [number, number])}
-              color={color}
-              weight={weight}
-              opacity={opacity}
-              dashArray={dashArray}
+              key="disaster-to-route"
+              positions={[
+                [disasterCoords.lat, disasterCoords.lng] as [number, number],
+                [routeStart.lat, routeStart.lng] as [number, number],
+              ]}
+              color="#f59e0b"
+              weight={4}
+              opacity={0.9}
+              dashArray="6 6"
             >
-              <Popup>{popupText}</Popup>
+              <Popup>Connecting path from disaster location to route start</Popup>
             </Polyline>
           );
-        })}
+        })()}
 
         {assetsData.map((asset) => {
           const isRecommended = recommendedAssets.some((a) => a.id === asset.id);

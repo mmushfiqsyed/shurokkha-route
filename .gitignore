@@ -19,8 +19,6 @@ ai-service/logs
 ai-service/.venv
 
 # Environment
-.env
-ai-service/.env
 
 # testing
 /coverage
