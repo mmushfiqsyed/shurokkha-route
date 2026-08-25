@@ -19,6 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from shurokkha_route.crew import Shurokkha_Route
 from shurokkha_route.thought_stream import set_sink
+from shurokkha_route.tools.disaster_tools import AssetLookupTool, RoutingContextTool
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -27,9 +28,23 @@ DATA_DIR = REPO_ROOT / "src" / "data"
 try:
     from dotenv import load_dotenv
 
-    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 except Exception:
     pass
+
+print(f"[server.py] GEMINI_API_KEY loaded: {repr(os.environ.get('GEMINI_API_KEY'))[:15]}...")
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
+except Exception:
+    pass
+
+_key = os.environ.get("GEMINI_API_KEY")
+if _key:
+    print(f"[server.py] GEMINI_API_KEY loaded, ends in ...{_key[-6:]} (length {len(_key)})")
+else:
+    print("[server.py] GEMINI_API_KEY is NOT set")
 
 RUN_LOCK = threading.Lock()
 
@@ -88,11 +103,16 @@ def parse_disaster(message: str) -> dict:
     people = 1
     import re
 
-    match = re.search(r"(\d+)\s*(?:people|persons|family|member|members)", message)
+    match = re.search(
+        r"(\d+)\s*(?:people|persons|family|member|members)",
+        message,
+        re.I,
+    )
     if not match:
         match = re.search(
             r"(?:family|group|party)\s+of\s+(\d+)",
-            message, re.I
+            message,
+            re.I,
         )
     if match:
         people = int(match.group(1))
@@ -112,11 +132,122 @@ def parse_disaster(message: str) -> dict:
         "mobility": mobility,
     }
 
+MAX_SHELTER_DISTANCE_KM = 40.0
+MAX_ROUTE_DISTANCE_KM = 40.0
+
+
+def _prepare_operational_candidates(
+    shelters: list,
+    routes: list,
+    user_lat: float,
+    user_lng: float,
+) -> tuple[list, list, list]:
+    """
+    Remove objectively unsafe/unusable candidates before the LLM sees them.
+
+    The LLM is still responsible for ranking/selecting among the remaining
+    candidates. This function only removes hard red flags.
+    """
+
+    import math
+
+    # ---------------------------------------------------------
+    # Shelters
+    # ---------------------------------------------------------
+    candidate_shelters = []
+
+    for shelter in shelters:
+        status = str(shelter.get("status", "")).strip().lower()
+
+        # Hard exclusion: never send completely unusable shelters.
+        if status in {"full", "closed"}:
+            continue
+
+        coordinates = shelter.get("coordinates") or {}
+        lat = coordinates.get("lat")
+        lng = coordinates.get("lng")
+
+        if lat is None or lng is None:
+            continue
+
+        distance_km = shelter.get("distance_km")
+
+        if distance_km is None:
+            dlat = (lat - user_lat) * 111.0
+            dlng = (
+                (lng - user_lng)
+                * 111.0
+                * math.cos(math.radians(user_lat))
+            )
+            distance_km = math.sqrt(dlat * dlat + dlng * dlng)
+
+        if float(distance_km) > MAX_SHELTER_DISTANCE_KM:
+            continue
+
+        operational_priority = (
+            "preferred"
+            if status == "active"
+            else "risky_alternative"
+            if status == "at risk"
+            else "unknown"
+        )
+
+        candidate_shelters.append(
+            {
+                **shelter,
+                "distance_km": round(float(distance_km), 2),
+                "operational_priority": operational_priority,
+            }
+        )
+
+    # IDs of shelters that survived filtering.
+    candidate_shelter_ids = {
+        shelter["id"]
+        for shelter in candidate_shelters
+        if shelter.get("id")
+    }
+
+    # ---------------------------------------------------------
+    # Routes
+    # ---------------------------------------------------------
+    candidate_routes = []
+
+    for route in routes:
+        status = str(route.get("status", "")).strip().lower()
+
+        # Hard exclusion: never give obviously unsafe routes to the LLM.
+        if status in {"blocked", "flooded", "closed", "unsafe"}:
+            continue
+
+        destination_id = route.get("destinationShelterId")
+
+        # Route must terminate at a shelter that survived the shelter filter.
+        if destination_id not in candidate_shelter_ids:
+            continue
+
+        route_distance = (
+            route.get("distance_km")
+            or route.get("distanceKm")
+            or route.get("distance")
+        )
+
+        if route_distance is not None:
+            try:
+                if float(route_distance) > MAX_ROUTE_DISTANCE_KM:
+                    continue
+            except (TypeError, ValueError):
+                pass
+
+        candidate_routes.append(route)
+
+    return candidate_shelters, candidate_routes, list(candidate_shelter_ids)
 
 def _run_demo_crew(parsed: dict, emit) -> None:
     shelters = _load_data("shelters.json")
     routes = _load_data("routes.json")
     assets = _load_data("assets.json")
+    
+    
 
     loc = parsed["location"]
     coords = parsed["coords"] or {"lat": 23.774, "lng": 90.375}
@@ -329,19 +460,79 @@ def _run_demo_crew(parsed: dict, emit) -> None:
         "summary": "Evacuate to the nearest safe shelter via the recommended route.",
     }
     emit({"type": "result", "data": result_payload})
-
+    
 
 # ---------------------------------------------------------------------------
 # Crew runner
 # ---------------------------------------------------------------------------
 
+MAX_ASSET_DISTANCE_KM = 60.0
+
+
+def _prepare_operational_assets(
+    assets: list,
+    user_lat: float,
+    user_lng: float,
+) -> list:
+    """
+    Deterministically remove assets that are unavailable,
+    too far away, or missing coordinates.
+
+    The LLM only receives assets that survive this filter.
+    """
+    import math
+
+    candidate_assets = []
+
+    for asset in assets:
+        status = str(asset.get("status", "")).strip().lower()
+
+        if status not in {"available", "in transit"}:
+            continue
+
+        coordinates = asset.get("coordinates") or {}
+        lat = coordinates.get("lat")
+        lng = coordinates.get("lng")
+
+        if lat is None or lng is None:
+            continue
+
+        dlat = (lat - user_lat) * 111.0
+        dlng = (
+            (lng - user_lng)
+            * 111.0
+            * math.cos(math.radians(user_lat))
+        )
+
+        distance_km = math.sqrt(
+            dlat * dlat +
+            dlng * dlng
+        )
+
+        if distance_km > MAX_ASSET_DISTANCE_KM:
+            continue
+
+        candidate_assets.append(
+            {
+                **asset,
+                "distance_km": round(distance_km, 2),
+            }
+        )
+
+    candidate_assets.sort(
+        key=lambda asset: asset["distance_km"]
+    )
+
+    return candidate_assets
+
+
 def run_crew(message: str, emit) -> None:
     parsed = parse_disaster(message)
 
-    if not _has_llm_key():
-        emit({"type": "info", "message": "Demo mode: no LLM key configured — running with simulated analysis."})
-        _run_demo_crew(parsed, emit)
-        return
+    # Load operational dataset.
+    shelters = _load_data("shelters.json")
+    routes = _load_data("routes.json")
+    assets = _load_data("assets.json")
 
     if not parsed["coords"]:
         emit(
@@ -349,12 +540,61 @@ def run_crew(message: str, emit) -> None:
                 "type": "error",
                 "message": (
                     "Location not recognized. Try mentioning a city like "
-                    "Sylhet, Dhaka, Chittagong, Khulna, Rajshahi, Barisal, Rangpur."
+                    "Sylhet, Dhaka, Chittagong, Khulna, Rajshahi, Barisal, "
+                    "Rangpur."
                 ),
             }
         )
         return
 
+    coords = parsed["coords"]
+
+    nearby_assets = _prepare_operational_assets(
+        assets=assets,
+        user_lat=coords["lat"],
+        user_lng=coords["lng"],
+    )
+
+    # Deterministic operational filtering.
+    (
+        candidate_shelters,
+        candidate_routes,
+        candidate_shelter_ids,
+    ) = _prepare_operational_candidates(
+        shelters=shelters,
+        routes=routes,
+        user_lat=coords["lat"],
+        user_lng=coords["lng"],
+    )
+
+    emit(
+        {
+            "type": "info",
+            "message": (
+                f"Deterministic filter: "
+                f"{len(candidate_shelters)} shelters and "
+                f"{len(candidate_routes)} routes remain for LLM reasoning."
+            ),
+        }
+    )
+
+    routing_context = {
+        "shelter_candidates": candidate_shelters,
+        "route_candidates": candidate_routes,
+        "assets_near_user": nearby_assets,
+    }
+    
+    if not _has_llm_key():
+        emit(
+            {
+                "type": "info",
+                "message": (
+                    "Demo mode: no LLM key configured — running with simulated analysis."
+                ),
+            }
+        )
+        _run_demo_crew(parsed, emit)
+        return
     try:
 
         emit(
@@ -366,22 +606,30 @@ def run_crew(message: str, emit) -> None:
                 ),
             }
         )
-
+        
         inputs = {
             "scenario": {
                 "disaster_type": parsed["disaster_type"],
                 "location": parsed["location"],
                 "description": message,
             },
+
             "user_context": {
-                "location": parsed["coords"],
+                "location": coords,
                 "people": parsed["people"],
                 "mobility": parsed["mobility"],
             },
+
             "system_state": {
-                "shelters": _load_data("shelters.json"),
-                "routes": _load_data("routes.json"),
-                "assets": _load_data("assets.json"),
+            "shelters": candidate_shelters,
+            "routes": candidate_routes,
+            "assets": nearby_assets,
+            },
+
+            "routing_context": {
+            "shelter_candidates": candidate_shelters,
+            "route_candidates": candidate_routes,
+            "assets_near_user": nearby_assets,
             },
         }
 
@@ -471,7 +719,7 @@ def _build_result_payload(parsed: dict, result) -> dict:
 
     hazard = pydantic_dict(pick("hazard")) or json_dict(pick("hazard"))
     shelter = pydantic_dict(pick("logistics", "shelter")) or json_dict(pick("logistics", "shelter"))
-    routing = pydantic_dict(pick("routing")) or json_dict(pick("routing"))
+    routing = pydantic_dict(pick("routing",  "route_safety")) or json_dict(pick("routing", "route_safety"))
     commander = pydantic_dict(pick("commander")) or json_dict(pick("commander"))
     advisory = pydantic_dict(pick("advisory")) or json_dict(pick("advisory"))
 

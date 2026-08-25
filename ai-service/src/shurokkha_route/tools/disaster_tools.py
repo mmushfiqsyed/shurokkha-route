@@ -121,97 +121,6 @@ class NearestShelterTool(BaseTool):
         return json.dumps(valid)
 
 
-class RouteConnectivityTool(BaseTool):
-    name: str = "route_connectivity"
-    description: str = (
-        "Check whether a specific route connects near the user's starting "
-        "location and the destination shelter, and whether it crosses any "
-        "water body. A route that crosses water (crosses_water true) is unsafe."
-    )
-
-    def _run(
-        self,
-        route_id: str,
-        start_lat: float,
-        start_lng: float,
-        end_lat: float,
-        end_lng: float,
-        tolerance_km: float = 15
-    ) -> str:
-
-        routes = _load("routes.json")
-
-        route = next(
-            (r for r in routes if r["id"] == route_id),
-            None
-        )
-
-        if route is None:
-            return json.dumps({
-                "route_id": route_id,
-                "connects": False,
-                "error": "Route not found"
-            })
-
-        start_distance = _haversine(
-            route["path"][0],
-            start_lat,
-            start_lng
-        )
-
-        end_distance = _haversine(
-            route["path"][-1],
-            end_lat,
-            end_lng
-        )
-
-        start_ok = start_distance <= tolerance_km
-        end_ok = end_distance <= tolerance_km
-
-        water_body = _crosses_water(route)
-
-        return json.dumps({
-            "route_id": route_id,
-            "destination_shelter_id": route.get("destinationShelterId"),
-            "connects": start_ok and end_ok and water_body is None,
-            "start_ok": start_ok,
-            "end_ok": end_ok,
-            "crosses_water": water_body is not None,
-            "water_body": water_body,
-            "start_distance_km": round(start_distance, 2),
-            "end_distance_km": round(end_distance, 2),
-            "status": route["status"]
-        })
-
-
-class RouteStatusTool(BaseTool):
-    name: str = "route_status_check"
-
-    description: str = """
-    Checks the status of available routes.
-    Returns route ID, route name, route status, and whether the route
-    crosses a water body (crossesWater).
-    A route marked Flooded or Blocked must not be recommended.
-    A route that crosses water must be treated as unsafe even if its
-    status is Safe, because evacuation routes may never cut directly
-    across rivers or water bodies.
-    """
-
-    def _run(self) -> str:
-
-        routes = _load("routes.json")
-
-        annotated = []
-        for route in routes:
-            entry = dict(route)
-            water = _crosses_water(route)
-            entry["crossesWater"] = water is not None
-            entry["waterBody"] = water
-            annotated.append(entry)
-
-        return json.dumps(annotated, indent=2)
-
-
 class AssetLookupTool(BaseTool):
     name: str = "asset_lookup"
     description: str = (
@@ -256,3 +165,110 @@ class AssetLookupTool(BaseTool):
             })
 
         return json.dumps(matches)
+    
+    
+class RoutingContextTool(BaseTool):
+    name: str = "routing_context"
+
+    description: str = (
+        "Given the user's location and candidate shelter IDs, deterministically "
+        "check all routes to those shelters for status, connectivity, water "
+        "crossings, and available assets. Returns the complete verified routing "
+        "context. Do not calculate coordinates yourself."
+    )
+
+    def _run(
+        self,
+        user_lat: float,
+        user_lng: float,
+        candidate_shelter_ids: list[str],
+    ) -> str:
+
+        shelters = _load("shelters.json")
+        routes = _load("routes.json")
+        assets = _load("assets.json")
+
+        shelter_results = []
+
+        for shelter_id in candidate_shelter_ids:
+            shelter = next(
+                (s for s in shelters if s["id"] == shelter_id),
+                None,
+            )
+
+            if shelter is None:
+                continue
+
+            candidate_routes = [
+                r for r in routes
+                if r.get("destinationShelterId") == shelter_id
+            ]
+
+            route_checks = []
+
+            for route in candidate_routes:
+                start_distance = _haversine(
+                    route["path"][0],
+                    user_lat,
+                    user_lng,
+                )
+
+                end_distance = _haversine(
+                    route["path"][-1],
+                    shelter["coordinates"]["lat"],
+                    shelter["coordinates"]["lng"],
+                )
+
+                water = _crosses_water(route)
+
+                connects = (
+                    start_distance <= 15
+                    and end_distance <= 15
+                )
+
+                safe = (
+                    route["status"] == "Safe"
+                    and connects
+                    and water is None
+                )
+
+                route_checks.append({
+                    "route_id": route["id"],
+                    "status": route["status"],
+                    "start_distance_km": round(start_distance, 2),
+                    "end_distance_km": round(end_distance, 2),
+                    "connects": connects,
+                    "crosses_water": water is not None,
+                    "water_body": water,
+                    "safe": safe,
+                })
+
+            assigned_assets = [
+                a for a in assets
+                if a.get("destinationId") == shelter_id
+            ]
+
+            shelter_results.append({
+                "shelter_id": shelter_id,
+                "routes": route_checks,
+                "assigned_assets": assigned_assets,
+            })
+
+        nearby_assets = []
+
+        for asset in assets:
+            distance = _haversine(
+                asset["coordinates"],
+                user_lat,
+                user_lng,
+            )
+
+            if distance <= 50:
+                item = dict(asset)
+                item["distance_km"] = round(distance, 2)
+                nearby_assets.append(item)
+
+        return json.dumps({
+            "shelter_results": shelter_results,
+            "assets_near_user": nearby_assets,
+        })

@@ -6,6 +6,12 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
+except Exception:
+    pass
+
 from shurokkha_route.crew import Shurokkha_Route
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
