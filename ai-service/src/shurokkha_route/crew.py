@@ -6,7 +6,7 @@ from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from pydantic import BaseModel, Field
 
-from shurokkha_route.tools.disaster_tools import AssetLookupTool, ShelterLookupTool, RouteStatusTool, NearestShelterTool, RouteConnectivityTool
+from shurokkha_route.tools.disaster_tools import AssetLookupTool, RouteStatusTool, NearestShelterTool, RouteConnectivityTool
 
 
 def _resolve_llm() -> LLM:
@@ -49,6 +49,10 @@ class RoutingAssessment(BaseModel):
     available_assets: list[str]
     notes: str
     
+class AssetAssessment(BaseModel):
+    available_assets: list[str]
+    notes: str
+    
 class ShelterAssessment(BaseModel):
     recommended_shelter_id: str | None
     viable_shelters: list[str]
@@ -71,7 +75,7 @@ class Shurokkha_Route():
         return _agent(self.agents_config['routing_and_operations_agent'], tools=[RouteStatusTool(), RouteConnectivityTool(), AssetLookupTool()])
     @agent
     def logistics_and_shelter_agent(self) -> Agent:
-        return _agent(self.agents_config['logistics_and_shelter_agent'], tools=[ShelterLookupTool(), NearestShelterTool()])
+        return _agent(self.agents_config['logistics_and_shelter_agent'], tools=[NearestShelterTool()])
 
     @agent
     def commander(self) -> Agent:
@@ -85,8 +89,11 @@ class Shurokkha_Route():
         return Task(config = self.tasks_config['hazard_assessment_task'], output_pydantic=HazardAssessment)
     
     @task
-    def routing_and_operations_task(self) -> Task:
-        return Task(config = self.tasks_config['routing_and_operations_task'], output_pydantic=RoutingAssessment)
+    def route_safety_task(self) -> Task:
+        return Task(config = self.tasks_config['route_safety_task'], output_pydantic=RoutingAssessment)
+    @task
+    def asset_availability_task(self) -> Task:
+        return Task(config = self.tasks_config['asset_availability_task'], output_pydantic=AssetAssessment)
     @task
     def logistics_and_shelter_task(self) -> Task:
         return Task(config = self.tasks_config['logistics_and_shelter_task'], output_pydantic=ShelterAssessment)
@@ -109,10 +116,13 @@ class Shurokkha_Route():
             tasks=[
             self.hazard_assessment_task(), 
             self.logistics_and_shelter_task(), 
-            self.routing_and_operations_task(), 
+            self.route_safety_task(),
+            self.asset_availability_task(),
             self.commander_task(), 
             self.advisory_task()
             ],
             process=Process.sequential,
+            max_rpm=4,
             verbose=True,
+            
         )

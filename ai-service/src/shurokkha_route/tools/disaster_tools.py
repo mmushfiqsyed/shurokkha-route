@@ -3,8 +3,11 @@ import json
 from math import radians, sin, cos, sqrt, atan2
 from pathlib import Path
 
+from websockets import route
+
 REPO_ROOT = Path(__file__).resolve().parents[4]
 DATA_DIR = REPO_ROOT / "src" / "data"
+REASONABLE_EVAC_RADIUS_KM = 40
 
 
 def _load(name: str):
@@ -59,31 +62,31 @@ def _crosses_water(route):
     return None
 
 
-class ShelterLookupTool(BaseTool):
-    name: str = "Shelter Lookup Tool"
-    description: str = """
-    Finds available shelters nearby a given longitude and latitude.
-    Returns shelter ID, name, coordinates, cap and risk status.
-    Do not recommend full shelters.
-    """
+# class ShelterLookupTool(BaseTool):
+#     name: str = "Shelter Lookup Tool"
+#     description: str = """
+#     Finds available shelters nearby a given longitude and latitude.
+#     Returns shelter ID, name, coordinates, cap and risk status.
+#     Do not recommend full shelters.
+#     """
 
-    def _run(self, lat: float, lng: float) -> str:
-        shelters = _load("shelters.json")
+#     def _run(self, lat: float, lng: float) -> str:
+#         shelters = _load("shelters.json")
 
-        available_shelters = [
-            shelter
-            for shelter in shelters
-            if shelter["status"] == "Active"
-            and shelter["currentCapacity"] < shelter["maxCapacity"]
-        ]
+#         available_shelters = [
+#             shelter
+#             for shelter in shelters
+#             if shelter["status"] == "Active"
+#             and shelter["currentCapacity"] < shelter["maxCapacity"]
+#         ]
 
-        available_shelters.sort(
-            key=lambda shelter:
-            (shelter["coordinates"]["lat"] - lat) ** 2
-            + (shelter["coordinates"]["lng"] - lng) ** 2
-        )
+#         available_shelters.sort(
+#             key=lambda shelter:
+#             (shelter["coordinates"]["lat"] - lat) ** 2
+#             + (shelter["coordinates"]["lng"] - lng) ** 2
+#         )
 
-        return json.dumps(available_shelters[:3], indent=2)
+#         return json.dumps(available_shelters[:3], indent=2)
 
 
 class NearestShelterTool(BaseTool):
@@ -112,13 +115,9 @@ class NearestShelterTool(BaseTool):
         ]
 
         for shelter in valid:
-            shelter["distance_km"] = round(
-                _haversine(shelter["coordinates"], lat, lng),
-                2
-            )
-
+            shelter["distance_km"] = round(_haversine(shelter["coordinates"], lat, lng), 2)
+            shelter["within_local_range"] = shelter["distance_km"] <= REASONABLE_EVAC_RADIUS_KM
         valid.sort(key=lambda s: s["distance_km"])
-
         return json.dumps(valid)
 
 
@@ -205,8 +204,9 @@ class RouteStatusTool(BaseTool):
         annotated = []
         for route in routes:
             entry = dict(route)
-            entry["crossesWater"] = _crosses_water(route) is not None
-            entry["waterBody"] = _crosses_water(route)
+            water = _crosses_water(route)
+            entry["crossesWater"] = water is not None
+            entry["waterBody"] = water
             annotated.append(entry)
 
         return json.dumps(annotated, indent=2)

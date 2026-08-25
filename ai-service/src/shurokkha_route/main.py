@@ -23,8 +23,7 @@ routes = json.loads(
 assets = json.loads(
     (base / "src/data/assets.json").read_text()
 )
-
-input1 = {
+TEST_SCENARIO = {
     "scenario": {
         "disaster_type": "Flood",
         "location": "Sylhet",
@@ -42,14 +41,14 @@ input1 = {
     }
 }
 def kickoff():
-    inputs = input1
+    inputs = TEST_SCENARIO
 
     result = Shurokkha_Route().crew().kickoff(inputs=inputs)
     save_run_log(inputs, result)
 
 
 def train():
-    inputs = input1
+    inputs = TEST_SCENARIO
     Shurokkha_Route().crew().train(n_iterations=int(sys.argv[1]), filename=sys.argv[2], inputs=inputs)
 
 def save_run_log(inputs,result):
@@ -92,6 +91,6 @@ def replay():
     Shurokkha_Route().crew().replay(task_id=sys.argv[1])
 
 def test():
-    inputs = input1
+    inputs = TEST_SCENARIO
 
     Shurokkha_Route().crew().test(n_iterations=int(sys.argv[1]), eval_llm=sys.argv[2], inputs=inputs)

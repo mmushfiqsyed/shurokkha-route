@@ -35,51 +35,26 @@ logistics_and_shelter_task:
   agent: logistics_and_shelter_agent
   context: [hazard_assessment_task]
 
-
-routing_and_operations_task:
+route_safety_task:
   description: >
-    Using the hazard assessment and shelter assessment, determine
-    which candidate shelter can actually be reached safely.
-
-    For each candidate shelter being considered, identify routes whose
-    destinationShelterId matches that shelter.
-
-    Use route_status_check to check whether those routes are Safe,
-    Flooded, or Blocked. The route_status_check output includes a
-    crossesWater flag.
-
-    A route that crosses a water body (crossesWater true) is NEVER safe.
-    Evacuation routes may not cut directly across rivers or water bodies.
-    Even if a route is marked Safe, if it crosses water it must be
-    treated as blocked and reported in blocked_routes.
-
-    Use route_connectivity to verify that the selected route actually
-    connects near the user's current location and the destination
-    shelter, and check its crosses_water field.
-
-    A route being marked Safe is not sufficient by itself.
-    The route must also connect the user's current location to the
-    destination shelter and must not cross any water body.
-
-    If the primary shelter cannot be reached safely, check the alternate
-    shelters until a safe connected route is found or all candidates
-    have been exhausted.
-
-    Also use asset_lookup with the user's current coordinates to identify
-    ambulances and rescue teams near the user.
-
-    Also check assets assigned to the selected shelter.
-
-    Do not invent routes, connectivity, assets, or route status.
-
+    For each candidate shelter, verify whether a route exists that is
+    Safe, connects the user's location to the shelter, and does not
+    cross water. Check alternates in order if the primary fails.
   expected_output: >
-    A structured routing assessment containing the selected shelter,
-    selected route, safe routes, blocked routes, available assets,
-    and notes.
-
+    The verified safe shelter+route pair, or explicit statement that
+    none exists, with the full list of routes checked and why each
+    was accepted or rejected.
   agent: routing_and_operations_agent
-
   context: [hazard_assessment_task, logistics_and_shelter_task]
+
+asset_availability_task:
+  description: >
+    Identify rescue/medical assets near the user's location and any
+    assigned to the selected shelter from route_safety_task.
+  expected_output: >
+    List of nearby and shelter-assigned assets with type, status, and distance.
+  agent: routing_and_operations_agent
+  context: [route_safety_task]
 
 
 commander_task:
@@ -108,11 +83,13 @@ commander_task:
   expected_output: >
     A structured commander's decision containing the priority action,
     destination if one is verified safe, route if one is verified safe,
-    and a short justification.
+    whether the destination is within local range, whether the decision
+    relied on an already-deployed asset instead of self-evacuation, and
+    a short justification.
 
   agent: commander
 
-  context: [hazard_assessment_task, logistics_and_shelter_task, routing_and_operations_task]
+  context: [hazard_assessment_task, logistics_and_shelter_task, route_safety_task, asset_availability_task]
 
 
 advisory_task:
@@ -124,7 +101,7 @@ advisory_task:
     or actions that are not present in the Commander's decision.
 
   expected_output: >
-    Max 3 short numbered steps in plain language.
+    Short numbered steps in plain language. Include justification only if it is present in the Commander's decision. 
 
   agent: advisory_agent
 

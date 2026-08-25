@@ -14,9 +14,12 @@ import json
 import os
 import queue
 import threading
-from datetime import datetime
+from datetime import datetime, UTC
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from shurokkha_route.crew import Shurokkha_Route
+from shurokkha_route.thought_stream import set_sink
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_DIR = REPO_ROOT / "src" / "data"
@@ -86,6 +89,11 @@ def parse_disaster(message: str) -> dict:
     import re
 
     match = re.search(r"(\d+)\s*(?:people|persons|family|member|members)", message)
+    if not match:
+        match = re.search(
+            r"(?:family|group|party)\s+of\s+(\d+)",
+            message, re.I
+        )
     if match:
         people = int(match.group(1))
 
@@ -348,8 +356,6 @@ def run_crew(message: str, emit) -> None:
         return
 
     try:
-        from shurokkha_route.crew import Shurokkha_Route
-        from shurokkha_route.thought_stream import set_sink
 
         emit(
             {
@@ -407,6 +413,8 @@ def run_crew(message: str, emit) -> None:
             emit({"type": "result", "data": payload})
             emit({"type": "crew_end"})
     except Exception as exc:  # noqa: BLE001 - report everything to the client
+        import traceback
+        traceback.print_exc()
         err_str = str(exc)
         is_quota = "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower()
         if is_quota:
@@ -423,7 +431,10 @@ def run_crew(message: str, emit) -> None:
         else:
             emit({"type": "error", "message": f"Crew run failed: {exc}"})
     finally:
-        set_sink(None)
+        try:
+            set_sink(None)
+        except Exception:
+            pass
 
 
 def _build_result_payload(parsed: dict, result) -> dict:
@@ -569,7 +580,7 @@ class KickoffHandler(BaseHTTPRequestHandler):
                 try:
                     event = events.get(timeout=10)
                 except queue.Empty:
-                    _sse("ping", {"ts": datetime.utcnow().isoformat()})
+                    _sse("ping", {"ts": datetime.now(UTC).isoformat()})
                     continue
 
                 kind = event.get("type", "info")
