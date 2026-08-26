@@ -16,7 +16,7 @@ export default function Sidebar({ onSubmit, loading, steps, thoughts, isProcessi
     <aside className="flex w-[18rem] shrink-0 flex-col gap-4 overflow-y-auto overflow-x-hidden border-r border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 p-4">
       <div className="shrink-0">
         <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md">
+          <div className="flex h-8 w-8 mb-1 items-center justify-center rounded-md">
             <img src="/favicon.ico" alt="Logo" />
           </div>
           <div>
@@ -34,7 +34,7 @@ export default function Sidebar({ onSubmit, loading, steps, thoughts, isProcessi
         <TelemetryFeed steps={steps} thoughts={thoughts} isProcessing={isProcessing} />
       </div>
       <div>
-        <LoginPanel />
+        <LoginPanel/>
       </div>
     </aside>
   );
