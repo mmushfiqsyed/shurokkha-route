@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Shurokkha Route | Disaster Management Dashboard",
+  title: "Shurokkha Route — Disaster Management Dashboard",
   description:
     "Multi-Agent AI driven disaster management and relief coordination system.",
 };
