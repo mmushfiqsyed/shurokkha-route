@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import { MapContainer, TileLayer, ZoomControl, Marker, Polyline, Popup, useMap } from "react-leaflet";
+import {
+  AttributionControl,
+  MapContainer,
+  TileLayer,
+  ZoomControl,
+  Marker,
+  Polyline,
+  Popup,
+  useMap,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import type { CalculationStep, Recommendation } from "@/types";
@@ -118,12 +127,14 @@ export default function MapCanvas({ steps, recommendation }: MapCanvasProps) {
         center={DEFAULT_CENTER}
         zoom={DEFAULT_ZOOM}
         zoomControl={false}
+        attributionControl={false}
         className="h-full w-full"
         style={{ height: "100%", width: "100%" }}
         maxBounds={BANGLADESH_BOUNDS}
         maxBoundsViscosity={1.0}
       >
-        <ZoomControl position="bottomright" />
+        <AttributionControl position="bottomleft" />
+        <ZoomControl position="bottomleft" />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

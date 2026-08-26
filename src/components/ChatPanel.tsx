@@ -43,14 +43,14 @@ export default function ChatPanel({ onSubmit, loading }: ChatPanelProps) {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="e.g. Flood in Sylhet, 2 people with limited mobility"
                 disabled={loading}
-                className="box-border w-full rounded-md border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-700 px-3 py-2 text-sm text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+                className="box-border w-full rounded-md border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-700 px-3 py-2 text-sm text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
               />
             </div>
             <div>
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? "..." : "Send"}
               </button>
