@@ -128,6 +128,10 @@ commander_task:
     that and recommend the safest immediate action without inventing
     information.
 
+    If the selected shelter is far enough away that self-evacuation on foot is unrealistic, 
+    explicitly state that organized vehicle or rescue transport is required. 
+    Never imply that a long-distance shelter should be reached on foot.
+
     Prioritize life safety above convenience or distance.
 
   expected_output: >

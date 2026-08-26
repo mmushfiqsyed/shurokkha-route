@@ -32,6 +32,7 @@ class HazardAssessment(BaseModel):
 class CommanderDecision(BaseModel):
     priority_action: str
     destination_shelter_id: str | None
+    viable_asset_id: str | None
     route_id: str | None
     alternate_considered: bool
     justification: str

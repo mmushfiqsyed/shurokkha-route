@@ -14,13 +14,12 @@ import json
 import os
 import queue
 import threading
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
 from shurokkha_route.crew import Shurokkha_Route
 from shurokkha_route.thought_stream import set_sink
-from shurokkha_route.tools.disaster_tools import AssetLookupTool, RoutingContextTool
-
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_DIR = REPO_ROOT / "src" / "data"
@@ -106,13 +105,13 @@ def parse_disaster(message: str) -> dict:
     match = re.search(
         r"(\d+)\s*(?:people|persons|family|member|members)",
         message,
-        re.I,
+        re.IGNORECASE,
     )
     if not match:
         match = re.search(
             r"(?:family|group|party)\s+of\s+(\d+)",
             message,
-            re.I,
+            re.IGNORECASE,
         )
     if match:
         people = int(match.group(1))
@@ -181,9 +180,6 @@ def _prepare_operational_candidates(
             )
             distance_km = math.sqrt(dlat * dlat + dlng * dlng)
 
-        if float(distance_km) > MAX_SHELTER_DISTANCE_KM:
-            continue
-
         operational_priority = (
             "preferred"
             if status == "active"
@@ -196,6 +192,7 @@ def _prepare_operational_candidates(
             {
                 **shelter,
                 "distance_km": round(float(distance_km), 2),
+                "within_local_range": float(distance_km) <= MAX_SHELTER_DISTANCE_KM,
                 "operational_priority": operational_priority,
             }
         )
@@ -526,8 +523,14 @@ def _prepare_operational_assets(
     return candidate_assets
 
 
-def run_crew(message: str, emit) -> None:
+def run_crew(message: str, emit, gps_location=None) -> None:
     parsed = parse_disaster(message)
+    
+    if gps_location:
+        parsed["coords"] = {
+            "lat": float(gps_location["lat"]),
+            "lng": float(gps_location["lng"]),
+        }
 
     # Load operational dataset.
     shelters = _load_data("shelters.json")
@@ -793,10 +796,36 @@ class KickoffHandler(BaseHTTPRequestHandler):
             return
 
         message = body.get("message", "")
+        location = body.get("location")
         if not isinstance(message, str) or not message.strip():
             self._send_headers(400)
             self.wfile.write(json.dumps({"error": "Message is required"}).encode())
             return
+
+        if location is not None:
+            try:
+                latitude = float(location["lat"])
+                longitude = float(location["lng"])
+
+                if not (-90 <= latitude <= 90):
+                    raise ValueError("Invalid latitude")
+
+                if not (-180 <= longitude <= 180):
+                    raise ValueError("Invalid longitude")
+
+                location = {
+                    "lat": latitude,
+                    "lng": longitude,
+                }
+
+            except (KeyError, TypeError, ValueError):
+                self._send_headers(400)
+                self.wfile.write(
+                    json.dumps(
+                        {"error": "Invalid location coordinates"}
+                    ).encode()
+                )
+                return
 
         if not RUN_LOCK.acquire(blocking=False):
             self._send_headers(429)
@@ -820,7 +849,7 @@ class KickoffHandler(BaseHTTPRequestHandler):
             except (BrokenPipeError, ConnectionResetError):
                 pass
 
-        thread = threading.Thread(target=run_crew, args=(message, emit), daemon=True)
+        thread = threading.Thread(target=run_crew, args=(message, emit, location), daemon=True)
         thread.start()
 
         try:
