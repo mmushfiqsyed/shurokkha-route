@@ -2,6 +2,11 @@
   {
     "id": "rte-001",
     "name": "Dhaka-Mirpur Corridor",
+    "originLocation": "dhaka",
+    "originCoordinates": {
+    "lat": 23.774,
+    "lng": 90.375
+    },
     "path": [
       { "lat": 23.774, "lng": 90.375 },
       { "lat": 23.790, "lng": 90.370 },

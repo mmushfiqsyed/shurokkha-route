@@ -1,0 +1,279 @@
+[
+  {
+    "id": "rte-001",
+    "name": "Dhaka-Mirpur Corridor",
+    "routeType": "evacuation",
+    "startLocation": "dhaka",
+    "startCoordinates": {
+      "lat": 23.774,
+      "lng": 90.375
+    },
+    "endLocation": "mirpur",
+    "endCoordinates": {
+      "lat": 23.822,
+      "lng": 90.365
+    },
+    "destinationShelterId": "shel-002",
+    "bidirectional": true,
+    "status": "Safe",
+    "travelMode": "local_vehicle",
+    "distance_km": 5.55,
+    "path": [
+      {
+        "lat": 23.774,
+        "lng": 90.375
+      },
+      {
+        "lat": 23.79,
+        "lng": 90.37
+      },
+      {
+        "lat": 23.81,
+        "lng": 90.368
+      },
+      {
+        "lat": 23.822,
+        "lng": 90.365
+      }
+    ],
+    "lastUpdated": "2026-07-03T06:00:00Z"
+  },
+  {
+    "id": "rte-002",
+    "name": "Dhaka-Chittagong Highway",
+    "routeType": "evacuation",
+    "startLocation": "dhaka",
+    "startCoordinates": {
+      "lat": 23.774,
+      "lng": 90.375
+    },
+    "endLocation": "chittagong",
+    "endCoordinates": {
+      "lat": 22.335,
+      "lng": 91.815
+    },
+    "destinationShelterId": "shel-003",
+    "bidirectional": true,
+    "status": "Blocked",
+    "travelMode": "regional_transport",
+    "distance_km": 241.5,
+    "path": [
+      {
+        "lat": 23.774,
+        "lng": 90.375
+      },
+      {
+        "lat": 23.5,
+        "lng": 90.5
+      },
+      {
+        "lat": 23.0,
+        "lng": 90.8
+      },
+      {
+        "lat": 22.5,
+        "lng": 91.0
+      },
+      {
+        "lat": 22.335,
+        "lng": 91.815
+      }
+    ],
+    "lastUpdated": "2026-07-03T05:30:00Z"
+  },
+  {
+    "id": "rte-003",
+    "name": "Sylhet Local Evacuation Route",
+    "routeType": "evacuation",
+    "startLocation": "sylhet",
+    "startCoordinates": {
+      "lat": 24.898,
+      "lng": 91.875
+    },
+    "endLocation": "sylhet",
+    "endCoordinates": {
+      "lat": 24.898,
+      "lng": 91.875
+    },
+    "destinationShelterId": "shel-004",
+    "bidirectional": true,
+    "status": "Flooded",
+    "travelMode": "local_vehicle",
+    "distance_km": 4.2,
+    "path": [
+      {
+        "lat": 24.92,
+        "lng": 91.86
+      },
+      {
+        "lat": 24.91,
+        "lng": 91.865
+      },
+      {
+        "lat": 24.9,
+        "lng": 91.873
+      },
+      {
+        "lat": 24.898,
+        "lng": 91.875
+      }
+    ],
+    "lastUpdated": "2026-07-03T04:00:00Z"
+  },
+  {
+    "id": "rte-004",
+    "name": "Khulna-Barisal Coastal Road",
+    "routeType": "evacuation",
+    "startLocation": "khulna",
+    "startCoordinates": {
+      "lat": 22.845,
+      "lng": 89.54
+    },
+    "endLocation": "barisal",
+    "endCoordinates": {
+      "lat": 22.701,
+      "lng": 90.353
+    },
+    "destinationShelterId": "shel-007",
+    "bidirectional": true,
+    "status": "Safe",
+    "travelMode": "regional_transport",
+    "distance_km": 92.5,
+    "path": [
+      {
+        "lat": 22.845,
+        "lng": 89.54
+      },
+      {
+        "lat": 22.8,
+        "lng": 89.9
+      },
+      {
+        "lat": 22.75,
+        "lng": 90.1
+      },
+      {
+        "lat": 22.701,
+        "lng": 90.353
+      }
+    ],
+    "lastUpdated": "2026-07-03T06:15:00Z"
+  },
+  {
+    "id": "rte-005",
+    "name": "Rajshahi-Rangpur Highway",
+    "routeType": "evacuation",
+    "startLocation": "rajshahi",
+    "startCoordinates": {
+      "lat": 24.374,
+      "lng": 88.604
+    },
+    "endLocation": "rangpur",
+    "endCoordinates": {
+      "lat": 25.746,
+      "lng": 89.251
+    },
+    "destinationShelterId": "shel-008",
+    "bidirectional": true,
+    "status": "Blocked",
+    "travelMode": "regional_transport",
+    "distance_km": 174.0,
+    "path": [
+      {
+        "lat": 24.374,
+        "lng": 88.604
+      },
+      {
+        "lat": 24.9,
+        "lng": 88.9
+      },
+      {
+        "lat": 25.3,
+        "lng": 89.0
+      },
+      {
+        "lat": 25.746,
+        "lng": 89.251
+      }
+    ],
+    "lastUpdated": "2026-07-03T03:45:00Z"
+  },
+  {
+    "id": "rte-006",
+    "name": "Mirpur-Khulna Supply Line",
+    "routeType": "logistics",
+    "startLocation": "mirpur",
+    "startCoordinates": {
+      "lat": 23.822,
+      "lng": 90.365
+    },
+    "endLocation": "khulna",
+    "endCoordinates": {
+      "lat": 22.845,
+      "lng": 89.54
+    },
+    "destinationShelterId": "shel-005",
+    "bidirectional": true,
+    "status": "Safe",
+    "travelMode": "logistics_transport",
+    "distance_km": 139.0,
+    "path": [
+      {
+        "lat": 23.822,
+        "lng": 90.365
+      },
+      {
+        "lat": 23.5,
+        "lng": 90.0
+      },
+      {
+        "lat": 23.2,
+        "lng": 89.8
+      },
+      {
+        "lat": 22.845,
+        "lng": 89.54
+      }
+    ],
+    "lastUpdated": "2026-07-03T06:00:00Z"
+  },
+  {
+    "id": "rte-007",
+    "name": "Sylhet-Mirpur Relief Corridor",
+    "routeType": "evacuation",
+    "startLocation": "sylhet",
+    "startCoordinates": {
+      "lat": 24.898,
+      "lng": 91.875
+    },
+    "endLocation": "mirpur",
+    "endCoordinates": {
+      "lat": 23.822,
+      "lng": 90.365
+    },
+    "destinationShelterId": "shel-002",
+    "bidirectional": true,
+    "status": "Safe",
+    "travelMode": "organized_transport",
+    "distance_km": 193.3,
+    "path": [
+      {
+        "lat": 24.898,
+        "lng": 91.875
+      },
+      {
+        "lat": 24.55,
+        "lng": 91.6
+      },
+      {
+        "lat": 24.15,
+        "lng": 91.15
+      },
+      {
+        "lat": 23.822,
+        "lng": 90.365
+      }
+    ],
+    "lastUpdated": "2026-08-26T06:00:00Z"
+  }
+]

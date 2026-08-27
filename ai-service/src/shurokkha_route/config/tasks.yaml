@@ -19,8 +19,11 @@ logistics_and_shelter_task:
     eligible shelter candidates.
 
     The system has already deterministically removed shelters that are
-    Full, Closed, missing required coordinates, or outside the maximum
-    operational distance.
+    Full, Closed, missing required coordinates, or otherwise operationally invalid.
+
+    Shelter distance is provided as information and may be considered when
+    ranking candidates. A distant shelter must not be treated as locally
+    reachable without appropriate transport.
 
     Do not search for additional shelters.
     Do not call or use external shelter lookup information.
@@ -57,20 +60,21 @@ routing_and_operations_task:
     operational data supplied by the system, determine which candidate
     shelter can actually be reached safely.
 
-    IMPORTANT: The system has already performed deterministic safety
-    filtering. Treat the provided system_state and routing_context as the
-    COMPLETE authoritative operational dataset.
+    IMPORTANT: The route candidates provided by the system have already been
+    filtered for operational status, route type, destination shelter
+    eligibility, and relevance to the user's current location.
 
-    Do not search for additional shelters, routes, or assets.
-    Do not reconstruct missing routes.
-    Do not invent routes, connectivity, assets, or statuses.
+    Treat the provided route candidates as authoritative.
 
-    The provided shelter candidates have already passed the geographic
-    distance and basic availability filters.
+    Do not invent routes or reconstruct routes that are not present.
 
-    The provided route candidates have already had obviously unusable
-    routes removed, including blocked, flooded, closed, unsafe, water-crossing,
-    excessive-distance, and routes leading to eliminated shelters.
+    Only include a route in safe_routes if it is Safe and relevant to
+    the user's current location and destination shelter.
+
+    If no candidate route is safe and relevant, return no selected route.
+
+    If a selected route requires organized_transport or other
+    non-local transport, state this in the routing notes.
 
     Among the remaining candidates, determine which route and shelter are
     most appropriate using the hazard assessment, shelter status, capacity,
@@ -91,13 +95,9 @@ routing_and_operations_task:
     {user_context}
 
   expected_output: >
-    A structured routing assessment containing:
-    selected_shelter_id,
-    selected_route_id,
-    safe_routes,
-    blocked_routes,
-    available_assets,
-    and notes.
+    A structured routing assessment containing the selected safe shelter
+    and route if one exists, all safe routes considered, rejected routes,
+    relevant assets, required travel mode, and notes explaining the decision.
 
   agent: routing_and_operations_agent
 
@@ -127,6 +127,13 @@ commander_task:
     If no safe destination or route can be established, explicitly state
     that and recommend the safest immediate action without inventing
     information.
+
+    If the selected shelter is far enough away that self-evacuation on foot is unrealistic, 
+    explicitly state that organized vehicle or rescue transport is required. 
+    Never imply that a long-distance shelter should be reached on foot.
+
+    Use the route's travelMode when determining whether self-evacuation
+    is appropriate.
 
     Prioritize life safety above convenience or distance.
 

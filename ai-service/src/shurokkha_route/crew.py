@@ -1,10 +1,11 @@
-from typing import List
 import os
+from typing import List
 
-from crewai import LLM, Agent, Crew, Process, Task, tools
-from crewai.project import CrewBase, agent, crew, task
+from crewai import LLM, Agent, Crew, Process, Task
 from crewai.agents.agent_builder.base_agent import BaseAgent
+from crewai.project import CrewBase, agent, crew, task
 from pydantic import BaseModel, Field
+
 
 def _resolve_llm() -> LLM:
     """Pick a model from LLM_MODEL, else a sensible default per available key."""
@@ -32,6 +33,7 @@ class HazardAssessment(BaseModel):
 class CommanderDecision(BaseModel):
     priority_action: str
     destination_shelter_id: str | None
+    viable_asset_id: str | None
     route_id: str | None
     alternate_considered: bool
     justification: str
@@ -45,6 +47,7 @@ class RoutingAssessment(BaseModel):
     safe_routes: list[str]
     blocked_routes: list[str]
     available_assets: list[str]
+    travel_mode: str | None = None
     notes: str
     
 class ShelterAssessment(BaseModel):
