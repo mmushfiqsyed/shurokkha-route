@@ -50,7 +50,7 @@ export default function ChatPanel({ onSubmit, loading }: ChatPanelProps) {
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
               >
                 {loading ? "..." : "Send"}
               </button>
