@@ -58,7 +58,7 @@ export default function ChatbotButton({ onSubmit, loading }: ChatbotButtonProps)
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Open chat"
-          className="h-full w-full border-0 bg-green-600 px-4 text-sm font-medium text-white outline-none hover:bg-green-700 focus:outline-none focus:ring-0"
+          className="h-full w-full cursor-pointer border-0 bg-green-600 px-4 text-sm font-medium text-white outline-none hover:bg-green-700 focus:outline-none focus:ring-0"
         >
           Chat
         </button>
@@ -73,7 +73,7 @@ export default function ChatbotButton({ onSubmit, loading }: ChatbotButtonProps)
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Close chat"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-lg text-zinc-300 hover:bg-zinc-700 hover:text-white"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-lg text-zinc-300 cursor-pointer"
           >
             X
           </button>
