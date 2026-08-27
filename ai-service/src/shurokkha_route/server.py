@@ -14,13 +14,13 @@ import json
 import os
 import queue
 import threading
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from shurokkha_route.crew import Shurokkha_Route
-from shurokkha_route.thought_stream import set_sink
-from shurokkha_route.tools.disaster_tools import AssetLookupTool, RoutingContextTool
 
+from shurokkha_route.crew import Shurokkha_Route
+from shurokkha_route.strategyPattern.travel import determine_travel_mode
+from shurokkha_route.thought_stream import set_sink
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_DIR = REPO_ROOT / "src" / "data"
@@ -106,13 +106,13 @@ def parse_disaster(message: str) -> dict:
     match = re.search(
         r"(\d+)\s*(?:people|persons|family|member|members)",
         message,
-        re.I,
+        re.IGNORECASE,
     )
     if not match:
         match = re.search(
             r"(?:family|group|party)\s+of\s+(\d+)",
             message,
-            re.I,
+            re.IGNORECASE,
         )
     if match:
         people = int(match.group(1))
@@ -141,6 +141,8 @@ def _prepare_operational_candidates(
     routes: list,
     user_lat: float,
     user_lng: float,
+    user_location: str,
+    mobility: str = "normal",
 ) -> tuple[list, list, list]:
     """
     Remove objectively unsafe/unusable candidates before the LLM sees them.
@@ -181,9 +183,6 @@ def _prepare_operational_candidates(
             )
             distance_km = math.sqrt(dlat * dlat + dlng * dlng)
 
-        if float(distance_km) > MAX_SHELTER_DISTANCE_KM:
-            continue
-
         operational_priority = (
             "preferred"
             if status == "active"
@@ -192,11 +191,18 @@ def _prepare_operational_candidates(
             else "unknown"
         )
 
+        travel_mode = determine_travel_mode(
+            distance_km=float(distance_km),
+            mobility=mobility,
+        )
+
         candidate_shelters.append(
             {
                 **shelter,
                 "distance_km": round(float(distance_km), 2),
+                "within_local_range": float(distance_km) <= MAX_SHELTER_DISTANCE_KM,
                 "operational_priority": operational_priority,
+                "travel_mode": travel_mode,
             }
         )
 
@@ -215,16 +221,37 @@ def _prepare_operational_candidates(
     for route in routes:
         status = str(route.get("status", "")).strip().lower()
 
-        # Hard exclusion: never give obviously unsafe routes to the LLM.
+        # Hard operational exclusions.
         if status in {"blocked", "flooded", "closed", "unsafe"}:
             continue
 
+        # Only citizen evacuation routes are relevant here.
+        if route.get("routeType") != "evacuation":
+            continue
+
+        # The route must start from the user's current location/city
+        # in our mock operational model.
+        start_location = str(
+            route.get("startLocation", "")
+        ).strip().lower()
+
+        if start_location != user_location.strip().lower():
+            continue
+
+        # Destination shelter must remain eligible.
         destination_id = route.get("destinationShelterId")
 
-        # Route must terminate at a shelter that survived the shelter filter.
         if destination_id not in candidate_shelter_ids:
             continue
 
+        # Reject explicitly water-crossing routes if your dataset marks them.
+        if route.get("crossesWater") is True:
+            continue
+
+        if route.get("crosses_water") is True:
+            continue
+
+        # Distance is informational, not a hard cutoff.
         route_distance = (
             route.get("distance_km")
             or route.get("distanceKm")
@@ -233,8 +260,11 @@ def _prepare_operational_candidates(
 
         if route_distance is not None:
             try:
-                if float(route_distance) > MAX_ROUTE_DISTANCE_KM:
-                    continue
+                route_distance = float(route_distance)
+                route["distance_km"] = route_distance
+                route["within_local_range"] = (
+                    route_distance <= MAX_ROUTE_DISTANCE_KM
+                )
             except (TypeError, ValueError):
                 pass
 
@@ -243,8 +273,8 @@ def _prepare_operational_candidates(
     return candidate_shelters, candidate_routes, list(candidate_shelter_ids)
 
 def _run_demo_crew(parsed: dict, emit) -> None:
-    shelters = _load_data("shelters.json")
-    routes = _load_data("routes.json")
+    shelters = _load_data("final_shelters.json")
+    routes = _load_data("final_routes.json")
     assets = _load_data("assets.json")
     
     
@@ -526,12 +556,18 @@ def _prepare_operational_assets(
     return candidate_assets
 
 
-def run_crew(message: str, emit) -> None:
+def run_crew(message: str, emit, gps_location=None) -> None:
     parsed = parse_disaster(message)
+    
+    if gps_location:
+        parsed["coords"] = {
+            "lat": float(gps_location["lat"]),
+            "lng": float(gps_location["lng"]),
+        }
 
     # Load operational dataset.
-    shelters = _load_data("shelters.json")
-    routes = _load_data("routes.json")
+    shelters = _load_data("final_shelters.json")
+    routes = _load_data("final_routes.json")
     assets = _load_data("assets.json")
 
     if not parsed["coords"]:
@@ -556,15 +592,15 @@ def run_crew(message: str, emit) -> None:
     )
 
     # Deterministic operational filtering.
-    (
-        candidate_shelters,
-        candidate_routes,
-        candidate_shelter_ids,
-    ) = _prepare_operational_candidates(
-        shelters=shelters,
-        routes=routes,
-        user_lat=coords["lat"],
-        user_lng=coords["lng"],
+    candidate_shelters, candidate_routes, candidate_shelter_ids = (
+        _prepare_operational_candidates(
+            shelters=shelters,
+            routes=routes,
+            user_lat=coords["lat"],
+            user_lng=coords["lng"],
+            user_location=parsed["location"],
+            mobility=parsed["mobility"],
+        )
     )
 
     emit(
@@ -622,12 +658,14 @@ def run_crew(message: str, emit) -> None:
 
             "system_state": {
             "shelters": candidate_shelters,
+            "shelter_ids": candidate_shelter_ids,
             "routes": candidate_routes,
             "assets": nearby_assets,
             },
 
             "routing_context": {
             "shelter_candidates": candidate_shelters,
+            "shelter_ids": candidate_shelter_ids,
             "route_candidates": candidate_routes,
             "assets_near_user": nearby_assets,
             },
@@ -793,10 +831,36 @@ class KickoffHandler(BaseHTTPRequestHandler):
             return
 
         message = body.get("message", "")
+        location = body.get("location")
         if not isinstance(message, str) or not message.strip():
             self._send_headers(400)
             self.wfile.write(json.dumps({"error": "Message is required"}).encode())
             return
+
+        if location is not None:
+            try:
+                latitude = float(location["lat"])
+                longitude = float(location["lng"])
+
+                if not (-90 <= latitude <= 90):
+                    raise ValueError("Invalid latitude")
+
+                if not (-180 <= longitude <= 180):
+                    raise ValueError("Invalid longitude")
+
+                location = {
+                    "lat": latitude,
+                    "lng": longitude,
+                }
+
+            except (KeyError, TypeError, ValueError):
+                self._send_headers(400)
+                self.wfile.write(
+                    json.dumps(
+                        {"error": "Invalid location coordinates"}
+                    ).encode()
+                )
+                return
 
         if not RUN_LOCK.acquire(blocking=False):
             self._send_headers(429)
@@ -820,7 +884,7 @@ class KickoffHandler(BaseHTTPRequestHandler):
             except (BrokenPipeError, ConnectionResetError):
                 pass
 
-        thread = threading.Thread(target=run_crew, args=(message, emit), daemon=True)
+        thread = threading.Thread(target=run_crew, args=(message, emit, location), daemon=True)
         thread.start()
 
         try:
