@@ -12,11 +12,16 @@ First, if you haven't already, install uv:
 pip install uv
 ```
 
-Next, navigate to your project directory and install the dependencies:
+Next, navigate to the `ai-service` directory and install the dependencies:
 
-(Optional) Lock the dependencies and install them by using the CLI command:
 ```bash
-crewai install
+uv sync
+```
+
+Create a `.env` file in this directory and add your LLM key:
+
+```dotenv
+GEMINI_API_KEY=your_key_here
 ```
 
 ### Customizing
@@ -30,13 +35,19 @@ crewai install
 
 ## Running the Project
 
-To kickstart your flow and begin execution, run this from the root folder of your project:
+To start the HTTP/SSE server used by the Next.js dashboard, run this from the `ai-service` directory:
 
 ```bash
-crewai run
+uv run python -m shurokkha_route.server
 ```
 
-This command initializes the latest-ai-flow Flow as defined in your configuration.
+The server listens on `http://127.0.0.1:8787`. Start the Next.js dashboard in a separate terminal from the repository root with `npm run dev`, then open `http://localhost:3000`.
+
+For a direct command-line flow run without the HTTP server, use:
+
+```bash
+uv run crewai run
+```
 
 This example, unmodified, will run a content creation flow on AI Agents and save the output to `output/post.md`.
 

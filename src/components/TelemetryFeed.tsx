@@ -80,11 +80,11 @@ export default function TelemetryFeed({ steps, thoughts, isProcessing }: Telemet
   const processing = isProcessing && thoughts.length === 0;
 
   return (
-    <section className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-4">
+    <section className="flex h-[420px] max-h-[420px] min-h-0 w-full flex-col rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
       <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">
         Agent Thought Processes
       </h2>
-      <div ref={containerRef} className="max-h-[32rem] overflow-y-auto space-y-3">
+      <div ref={containerRef} className="scrollbar-sleek min-h-0 flex-1 space-y-3 overflow-y-auto">
         {idle && <p className="text-xs text-zinc-400 italic">Awaiting scenario input...</p>}
         {processing && <p className="text-xs text-zinc-400 italic">Starting live CrewAI run...</p>}
 

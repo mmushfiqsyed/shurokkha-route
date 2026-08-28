@@ -131,6 +131,8 @@ export function buildStepsAndRecommendation(
       people: scenario.people,
       mobility: scenario.mobility,
       coords: scenario.coords,
+      userCoords: scenario.userCoords,
+      locationSource: scenario.locationSource,
     },
   });
 

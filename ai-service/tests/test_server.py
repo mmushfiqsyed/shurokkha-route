@@ -1,6 +1,7 @@
 from shurokkha_route.server import (
     _prepare_operational_candidates,
     parse_disaster,
+    wants_live_location,
 )
 from shurokkha_route.strategyPattern.travel import determine_travel_mode
 
@@ -37,6 +38,11 @@ def test_parse_unknown_location():
     assert result["coords"] is None
 
 
+def test_live_location_requires_explicit_chat_instruction():
+    assert wants_live_location("Earthquake in Mirpur, use my live location") is True
+    assert wants_live_location("Earthquake in Mirpur") is False
+
+
 def test_full_and_closed_shelters_are_removed():
     shelters = [
         {
@@ -71,6 +77,34 @@ def test_full_and_closed_shelters_are_removed():
     assert "active" in candidate_ids
     assert "full" not in candidate_ids
     assert "closed" not in candidate_ids
+
+
+def test_shelter_inside_disaster_zone_is_removed():
+    shelters = [
+        {
+            "id": "mirpur-crisis",
+            "coordinates": {"lat": 23.822, "lng": 90.365},
+            "status": "Active",
+        },
+        {
+            "id": "safe-dhaka",
+            "coordinates": {"lat": 23.774, "lng": 90.375},
+            "status": "Active",
+        },
+    ]
+
+    candidate_shelters, _, candidate_ids = _prepare_operational_candidates(
+        shelters=shelters,
+        routes=[],
+        user_lat=23.87,
+        user_lng=90.39,
+        user_location="mirpur",
+        disaster_coords={"lat": 23.822, "lng": 90.365},
+    )
+
+    assert "mirpur-crisis" not in candidate_ids
+    assert "safe-dhaka" in candidate_ids
+    assert all(shelter["id"] != "mirpur-crisis" for shelter in candidate_shelters)
 
 
 def test_far_shelter_is_retained_but_marked_non_local():

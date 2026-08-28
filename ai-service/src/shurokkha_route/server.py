@@ -132,8 +132,41 @@ def parse_disaster(message: str) -> dict:
         "mobility": mobility,
     }
 
+
+def wants_live_location(message: str) -> bool:
+    lower = message.lower()
+    return any(
+        phrase in lower
+        for phrase in (
+            "use my location",
+            "use live location",
+            "use my live location",
+            "use my gps",
+            "use gps",
+            "where i am",
+            "current location",
+        )
+    )
+
 MAX_SHELTER_DISTANCE_KM = 40.0
 MAX_ROUTE_DISTANCE_KM = 40.0
+DISASTER_EXCLUSION_RADIUS_KM = 5.0
+
+
+def _distance_km(first: dict, second: dict) -> float:
+    import math
+
+    lat_delta = math.radians(second["lat"] - first["lat"])
+    lng_delta = math.radians(second["lng"] - first["lng"])
+    first_lat = math.radians(first["lat"])
+    second_lat = math.radians(second["lat"])
+    haversine = (
+        math.sin(lat_delta / 2) ** 2
+        + math.sin(lng_delta / 2) ** 2
+        * math.cos(first_lat)
+        * math.cos(second_lat)
+    )
+    return 2 * 6371 * math.asin(math.sqrt(haversine))
 
 
 def _prepare_operational_candidates(
@@ -143,6 +176,7 @@ def _prepare_operational_candidates(
     user_lng: float,
     user_location: str,
     mobility: str = "normal",
+    disaster_coords: dict | None = None,
 ) -> tuple[list, list, list]:
     """
     Remove objectively unsafe/unusable candidates before the LLM sees them.
@@ -170,6 +204,11 @@ def _prepare_operational_candidates(
         lng = coordinates.get("lng")
 
         if lat is None or lng is None:
+            continue
+
+        if disaster_coords and _distance_km(
+            {"lat": lat, "lng": lng}, disaster_coords
+        ) <= DISASTER_EXCLUSION_RADIUS_KM:
             continue
 
         distance_km = shelter.get("distance_km")
@@ -272,7 +311,7 @@ def _prepare_operational_candidates(
 
     return candidate_shelters, candidate_routes, list(candidate_shelter_ids)
 
-def _run_demo_crew(parsed: dict, emit) -> None:
+def _run_demo_crew(parsed: dict, emit, candidate_shelters=None) -> None:
     shelters = _load_data("final_shelters.json")
     routes = _load_data("final_routes.json")
     assets = _load_data("assets.json")
@@ -309,7 +348,7 @@ def _run_demo_crew(parsed: dict, emit) -> None:
         "agent": "Logistics and shelter agent",
         "message": "Starting task",
     })
-    active_shelters = [s for s in shelters if s["status"] != "Full"]
+    active_shelters = candidate_shelters or [s for s in shelters if s["status"] == "Active"]
     viable_names = [s["name"] for s in active_shelters[:3]]
     unavailable_names = [s["name"] for s in shelters if s["status"] == "Full"]
     emit({
@@ -438,7 +477,9 @@ def _run_demo_crew(parsed: dict, emit) -> None:
         "scenario": {
             "disasterType": disaster_type,
             "location": loc,
-            "coords": coords,
+            "coords": parsed.get("disaster_coords") or coords,
+            "userCoords": coords,
+            "locationSource": parsed.get("location_source", "mentioned"),
             "people": parsed["people"],
             "mobility": parsed["mobility"],
         },
@@ -558,12 +599,15 @@ def _prepare_operational_assets(
 
 def run_crew(message: str, emit, gps_location=None) -> None:
     parsed = parse_disaster(message)
-    
-    if gps_location:
+    parsed["disaster_coords"] = parsed["coords"]
+    parsed["location_source"] = "mentioned"
+
+    if gps_location and wants_live_location(message):
         parsed["coords"] = {
             "lat": float(gps_location["lat"]),
             "lng": float(gps_location["lng"]),
         }
+        parsed["location_source"] = "live"
 
     # Load operational dataset.
     shelters = _load_data("final_shelters.json")
@@ -600,6 +644,7 @@ def run_crew(message: str, emit, gps_location=None) -> None:
             user_lng=coords["lng"],
             user_location=parsed["location"],
             mobility=parsed["mobility"],
+            disaster_coords=parsed["disaster_coords"],
         )
     )
 
@@ -613,6 +658,15 @@ def run_crew(message: str, emit, gps_location=None) -> None:
             ),
         }
     )
+
+    if not candidate_shelters:
+        emit(
+            {
+                "type": "error",
+                "message": "No safe shelter was verified outside the disaster exclusion zone.",
+            }
+        )
+        return
 
     routing_context = {
         "shelter_candidates": candidate_shelters,
@@ -629,7 +683,7 @@ def run_crew(message: str, emit, gps_location=None) -> None:
                 ),
             }
         )
-        _run_demo_crew(parsed, emit)
+        _run_demo_crew(parsed, emit, candidate_shelters)
         return
     try:
 
@@ -676,6 +730,7 @@ def run_crew(message: str, emit, gps_location=None) -> None:
         result = crew.kickoff(inputs=inputs)
 
         payload = _build_result_payload(parsed, result)
+        _validate_result_payload(payload, candidate_shelter_ids, candidate_routes)
 
         has_valid_shelter = bool(
             payload.get("shelter", {}).get("recommended_shelter_id")
@@ -694,7 +749,7 @@ def run_crew(message: str, emit, gps_location=None) -> None:
                     ),
                 }
             )
-            _run_demo_crew(parsed, emit)
+            _run_demo_crew(parsed, emit, candidate_shelters)
         else:
             emit({"type": "result", "data": payload})
             emit({"type": "crew_end"})
@@ -713,7 +768,7 @@ def run_crew(message: str, emit, gps_location=None) -> None:
                     ),
                 }
             )
-            _run_demo_crew(parsed, emit)
+            _run_demo_crew(parsed, emit, candidate_shelters)
         else:
             emit({"type": "error", "message": f"Crew run failed: {exc}"})
     finally:
@@ -777,7 +832,9 @@ def _build_result_payload(parsed: dict, result) -> dict:
         "scenario": {
             "disasterType": parsed["disaster_type"],
             "location": parsed["location"],
-            "coords": parsed["coords"],
+            "coords": parsed.get("disaster_coords") or parsed["coords"],
+            "userCoords": parsed["coords"],
+            "locationSource": parsed["location_source"],
             "people": parsed["people"],
             "mobility": parsed["mobility"],
         },
@@ -789,6 +846,43 @@ def _build_result_payload(parsed: dict, result) -> dict:
         "advisoryText": advisory_text,
         "summary": summary,
     }
+
+
+def _validate_result_payload(
+    payload: dict,
+    candidate_shelter_ids: list,
+    candidate_routes: list,
+) -> None:
+    """Remove any AI destination or route that failed deterministic checks."""
+    allowed_shelter_ids = set(candidate_shelter_ids)
+    shelter = payload.get("shelter") or {}
+    routing = payload.get("routing") or {}
+    commander = payload.get("commander") or {}
+
+    selected_shelter_id = (
+        commander.get("destination_shelter_id")
+        or shelter.get("recommended_shelter_id")
+    )
+    if selected_shelter_id not in allowed_shelter_ids:
+        shelter["recommended_shelter_id"] = None
+        commander["destination_shelter_id"] = None
+        routing["selected_shelter_id"] = None
+        routing["selected_route_id"] = None
+        routing["selected_route"] = None
+        routing["safe_routes"] = []
+        payload["summary"] = "No safe shelter was verified outside the disaster exclusion zone."
+        payload["advisoryText"] = payload["summary"]
+
+    allowed_route_ids = {route.get("id") for route in candidate_routes}
+    selected_route_id = routing.get("selected_route_id")
+    if selected_route_id and selected_route_id not in allowed_route_ids:
+        routing["selected_route_id"] = None
+        routing["selected_route"] = None
+        commander["route_id"] = None
+
+    payload["shelter"] = shelter
+    payload["routing"] = routing
+    payload["commander"] = commander
 
 
 # ---------------------------------------------------------------------------

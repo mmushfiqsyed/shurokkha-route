@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { CalculationStep, Recommendation } from "@/types";
+import type { Coordinates } from "@/types";
 
 const MapCanvas = dynamic(() => import("@/components/MapCanvas"), {
   ssr: false,
@@ -15,8 +16,9 @@ const MapCanvas = dynamic(() => import("@/components/MapCanvas"), {
 interface MapCanvasClientProps {
   steps: CalculationStep[];
   recommendation: Recommendation | null;
+  onLocationChange: (location: Coordinates | null) => void;
 }
 
-export default function MapCanvasClient({ steps, recommendation }: MapCanvasClientProps) {
-  return <MapCanvas steps={steps} recommendation={recommendation} />;
+export default function MapCanvasClient({ steps, recommendation, onLocationChange }: MapCanvasClientProps) {
+  return <MapCanvas steps={steps} recommendation={recommendation} onLocationChange={onLocationChange} />;
 }

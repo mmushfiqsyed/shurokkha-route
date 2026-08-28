@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
 import MapCanvasClient from "@/components/MapCanvasClient";
 import { buildStepsAndRecommendation } from "@/lib/build-result";
-import type { AgentThoughtEvent, AgentThoughtKind, CalculationStep, CrewResultPayload, Recommendation } from "@/types";
+import type { AgentThoughtEvent, AgentThoughtKind, CalculationStep, Coordinates, CrewResultPayload, Recommendation } from "@/types";
 
 function normalizeThoughtPayload(
   raw: Record<string, unknown>
@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const [thoughts, setThoughts] = useState<AgentThoughtEvent[]>([]);
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [loading, setLoading] = useState(false);
+  const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
 
   const handleSubmit = useCallback(async (message: string) => {
     setLoading(true);
@@ -58,7 +59,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, location: userLocation }),
       });
 
       if (!res.ok) {
@@ -169,7 +170,7 @@ export default function DashboardPage() {
       }
       setLoading(false);
     }
-  }, []);
+  }, [userLocation]);
 
   return (
     <div className="flex h-full">
@@ -181,7 +182,11 @@ export default function DashboardPage() {
         isProcessing={loading}
       />
       <main className="flex flex-1 flex-col">
-        <MapCanvasClient steps={steps} recommendation={recommendation} />
+        <MapCanvasClient
+          steps={steps}
+          recommendation={recommendation}
+          onLocationChange={setUserLocation}
+        />
       </main>
     </div>
   );

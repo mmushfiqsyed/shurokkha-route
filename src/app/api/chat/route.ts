@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const CREW_SERVICE_URL = process.env.CREW_SERVICE_URL ?? "http://127.0.0.1:8787";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  let body: { message?: string };
+  let body: { message?: string; location?: { lat?: number; lng?: number } };
   try {
     body = await request.json();
   } catch {
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     upstream = await fetch(`${CREW_SERVICE_URL}/api/kickoff`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, location: body.location }),
       cache: "no-store",
     });
   } catch {

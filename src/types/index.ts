@@ -97,6 +97,8 @@ export interface CrewResultPayload {
     disasterType: string;
     location: string;
     coords: Coordinates | null;
+    userCoords?: Coordinates | null;
+    locationSource?: "mentioned" | "live";
     people: number;
     mobility: string;
   };

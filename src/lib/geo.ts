@@ -5,6 +5,19 @@ export const waterBodiesData = waterBodiesJson as WaterBody[];
 
 type Point = { lat: number; lng: number };
 
+export function distanceKm(a: Point, b: Point): number {
+  const earthRadiusKm = 6371;
+  const latDelta = ((b.lat - a.lat) * Math.PI) / 180;
+  const lngDelta = ((b.lng - a.lng) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const haversine =
+    Math.sin(latDelta / 2) ** 2 +
+    Math.sin(lngDelta / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+
+  return 2 * earthRadiusKm * Math.asin(Math.sqrt(haversine));
+}
+
 function orient(a: Point, b: Point, c: Point): number {
   return (b.lng - a.lng) * (c.lat - a.lat) - (b.lat - a.lat) * (c.lng - a.lng);
 }

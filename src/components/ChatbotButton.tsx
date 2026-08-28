@@ -102,7 +102,7 @@ export default function ChatbotButton({ onSubmit, loading }: ChatbotButtonProps)
           <input
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="Type a message..."
+            placeholder="Describe a crisis; add 'use my location' for GPS"
             disabled={loading}
             aria-label="Chat message"
             className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 text-xs text-zinc-800 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200"
