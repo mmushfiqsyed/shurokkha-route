@@ -81,7 +81,7 @@ Notes:
 
 ## Google shelter login
 
-Shelter operators can sign in at `/login` with Google and submit a shelter report at `/shelter`. Reports are attributed to the Google account and stored separately for review; they do not automatically overwrite official shelter data.
+Shelter operators can sign in at `/login` with Google or create a local account, then submit a shelter report at `/shelter`. Reports are attributed to the account and stored separately for review; they do not automatically overwrite official shelter data.
 
 To configure OAuth locally:
 
@@ -91,3 +91,5 @@ To configure OAuth locally:
 4. Restart the Next.js server after changing environment variables.
 
 The current report store is a local JSON file at `src/data/shelter-reports.json`, suitable for local development. Production deployments should replace it with a database or managed store before relying on operator reports across multiple instances.
+
+Local accounts require a name, email, and password of at least 8 characters. Passwords are stored as salted `scrypt` hashes in the development-only `src/data/local-accounts.json` file. Use a database-backed identity system for production deployments.

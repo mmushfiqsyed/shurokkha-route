@@ -1,1 +1,19 @@
-[]
+[
+  {
+    "ownerId": "local_7fb16390d7ca9167abfa142fb3ea7eaf",
+    "ownerEmail": "mushfiqsyed80@gmail.com",
+    "name": "Uttara Emergency Shelter",
+    "address": "Sector 11, Road 09",
+    "coordinates": {
+      "lat": 23.878174,
+      "lng": 90.390833
+    },
+    "status": "Active",
+    "currentCapacity": 0,
+    "maxCapacity": 100,
+    "contactPhone": "01805413135",
+    "notes": "",
+    "id": "86642cd9-5a19-4df7-909c-b20146f8e055",
+    "reportedAt": "2026-08-28T11:22:05.772Z"
+  }
+]
