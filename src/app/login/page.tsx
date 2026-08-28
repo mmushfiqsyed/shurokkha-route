@@ -1,44 +1,33 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import type { SessionUser } from "@/lib/auth";
 
 export default function LoginPage() {
+  const [user, setUser] = useState<SessionUser | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/session").then((response) => response.json()).then((data) => setUser(data.user));
+  }, []);
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-100 px-4 dark:bg-zinc-950">
-      <form className="w-full max-w-md space-y-6 rounded-xl bg-white p-8 shadow-sm dark:bg-zinc-900">
+      <section className="w-full max-w-md space-y-6 rounded-xl bg-white p-8 shadow-sm dark:bg-zinc-900">
         <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-green-600">Shelter network</p>
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-            Sign in
+            Sign in with Google
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Access your Shurokkha Route account.
+            Use your verified Google account to publish and maintain a shelter report.
           </p>
         </div>
-
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Email
-          <input
-            type="email"
-            name="email"
-            required
-            className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          />
-        </label>
-
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Password
-          <input
-            type="password"
-            name="password"
-            required
-            className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          />
-        </label>
-
-        <button
-          type="submit"
-          className="w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-        >
-          Sign in
-        </button>
+        {user ? (
+          <Link href="/shelter" className="block w-full rounded-lg bg-green-600 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-green-700">Continue as {user.name}</Link>
+        ) : (
+          <a href="/api/auth/google" className="flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-300 px-4 py-3 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800"><span className="text-lg font-bold">G</span>Continue with Google</a>
+        )}
 
         <Link
           href="/"
@@ -46,7 +35,7 @@ export default function LoginPage() {
         >
           Back to dashboard
         </Link>
-      </form>
+      </section>
     </main>
   );
 }

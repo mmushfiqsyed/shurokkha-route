@@ -193,12 +193,12 @@ export default function MapCanvas({ steps, recommendation, onLocationChange }: M
 
   return (
     <div className="relative flex-1" style={{ minHeight: 0 }}>
-      <div className="absolute left-3 top-3 z-[1000] w-[min(20rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
+      <div className="absolute left-3 top-3 z-[1000] w-fit max-w-[min(20rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 bg-white/95 p-1 shadow-lg backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
         <button
           type="button"
           onClick={locateUser}
           disabled={locationStatus === "locating"}
-          className="w-full cursor-pointer rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
+          className="cursor-pointer whitespace-nowrap rounded-md bg-green-600 px-2 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-wait disabled:opacity-60"
         >
           {locationStatus === "locating" ? "Finding your location..." : "Use my live location"}
         </button>

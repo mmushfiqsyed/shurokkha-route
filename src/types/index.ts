@@ -21,6 +21,21 @@ export interface Shelter {
   status: ShelterStatus;
 }
 
+export interface ShelterReport {
+  id: string;
+  ownerId: string;
+  ownerEmail: string;
+  name: string;
+  address: string;
+  coordinates: Coordinates;
+  status: "Active" | "At Risk" | "Full" | "Closed";
+  currentCapacity: number;
+  maxCapacity: number;
+  contactPhone: string;
+  notes: string;
+  reportedAt: string;
+}
+
 export type RouteStatus = "Safe" | "Blocked" | "Flooded";
 
 export interface Route {

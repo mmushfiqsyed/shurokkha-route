@@ -78,3 +78,16 @@ Notes:
 - Set `CREW_SERVICE_URL` if the AI service is not running at `http://127.0.0.1:8787`.
 - Only one scenario runs at a time; concurrent requests return a 429.
 - Evacuation routes are never drawn across water bodies: rivers in `src/data/water-bodies.json` are rendered on the map, and any route crossing one is flagged as blocked by the routing agent and painted red.
+
+## Google shelter login
+
+Shelter operators can sign in at `/login` with Google and submit a shelter report at `/shelter`. Reports are attributed to the Google account and stored separately for review; they do not automatically overwrite official shelter data.
+
+To configure OAuth locally:
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create an OAuth client ID for a Web application.
+2. Add `http://localhost:3000/api/auth/google` as an authorized redirect URI.
+3. Copy `.env.example` to `.env.local`, fill in `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and a random `AUTH_SECRET` of at least 32 characters.
+4. Restart the Next.js server after changing environment variables.
+
+The current report store is a local JSON file at `src/data/shelter-reports.json`, suitable for local development. Production deployments should replace it with a database or managed store before relying on operator reports across multiple instances.
