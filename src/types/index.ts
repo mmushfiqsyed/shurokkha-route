@@ -21,6 +21,21 @@ export interface Shelter {
   status: ShelterStatus;
 }
 
+export interface ShelterReport {
+  id: string;
+  ownerId: string;
+  ownerEmail: string;
+  name: string;
+  address: string;
+  coordinates: Coordinates;
+  status: "Active" | "At Risk" | "Full" | "Closed";
+  currentCapacity: number;
+  maxCapacity: number;
+  contactPhone: string;
+  notes: string;
+  reportedAt: string;
+}
+
 export type RouteStatus = "Safe" | "Blocked" | "Flooded";
 
 export interface Route {
@@ -55,4 +70,65 @@ export interface DisasterEvent {
   coordinates: Coordinates;
   timestamp: string;
   description: string;
+}
+
+export interface CalculationStep {
+  type: string;
+  message: string;
+  data?: Record<string, unknown>;
+}
+
+export interface WaterBody {
+  id: string;
+  name: string;
+  path: Coordinates[];
+}
+
+export type AgentThoughtKind =
+  | "crew_start"
+  | "crew_end"
+  | "agent_start"
+  | "agent_end"
+  | "thought"
+  | "tool_start"
+  | "tool_end"
+  | "info"
+  | "error";
+
+export interface AgentThoughtEvent {
+  kind: AgentThoughtKind;
+  agent?: string;
+  thought?: string | null;
+  tool?: string | null;
+  toolInput?: string | null;
+  text?: string | null;
+  output?: string | null;
+  message?: string;
+  ts: number;
+}
+
+export interface CrewResultPayload {
+  scenario: {
+    disasterType: string;
+    location: string;
+    coords: Coordinates | null;
+    userCoords?: Coordinates | null;
+    locationSource?: "mentioned" | "live";
+    people: number;
+    mobility: string;
+  };
+  hazard: Record<string, unknown> | null;
+  shelter: Record<string, unknown> | null;
+  routing: Record<string, unknown> | null;
+  commander: Record<string, unknown> | null;
+  advisory: Record<string, unknown> | null;
+  advisoryText: string;
+  summary: string;
+}
+
+export interface Recommendation {
+  shelter: Shelter | null;
+  route: Route | null;
+  assets: Asset[];
+  summary: string;
 }

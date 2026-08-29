@@ -34,3 +34,62 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Live CrewAI pipeline
+
+The sidebar streams each agent's thought process live from the CrewAI crew in `ai-service/`. No mock analysis: the Next.js app proxies the Python crew server over SSE.
+
+1. Install the AI service dependencies and add an LLM key (the crew will not run without one):
+
+   ```powershell
+   cd ai-service
+   uv sync
+   ```
+
+   Create `ai-service/.env` with your key:
+
+   ```dotenv
+   GEMINI_API_KEY=your_key_here
+   ```
+
+   Do not commit `.env` or the API key.
+
+2. Start the crew server (port 8787):
+
+   ```powershell
+   cd ai-service
+   uv run python -m shurokkha_route.server
+   ```
+
+3. In another terminal, start the dashboard:
+
+   ```powershell
+   cd ..
+   npm install
+   npm run dev
+   ```
+
+Type a scenario (e.g. "Flood in Sylhet, 2 people with limited mobility") and watch the agents think, call tools, and hand off results in the sidebar while the map updates.
+
+Location selection is controlled by the chat message. The location named in the scenario is used by default. To use the browser's live location instead, include an explicit phrase such as `use my live location` or `use GPS` in the same message, for example: `Earthquake in Mirpur, 2 people, use my live location`.
+
+Notes:
+- The crew server must be running before submitting a scenario; otherwise the UI shows a clear "service offline" error instead of fake data.
+- Set `CREW_SERVICE_URL` if the AI service is not running at `http://127.0.0.1:8787`.
+- Only one scenario runs at a time; concurrent requests return a 429.
+- Evacuation routes are never drawn across water bodies: rivers in `src/data/water-bodies.json` are rendered on the map, and any route crossing one is flagged as blocked by the routing agent and painted red.
+
+## Google shelter login
+
+Shelter operators can sign in at `/login` with Google or create a local account, then submit a shelter report at `/shelter`. Reports are attributed to the account and stored separately for review; they do not automatically overwrite official shelter data.
+
+To configure OAuth locally:
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create an OAuth client ID for a Web application.
+2. Add `http://localhost:3000/api/auth/google` as an authorized redirect URI.
+3. Copy `.env.example` to `.env.local`, fill in `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and a random `AUTH_SECRET` of at least 32 characters.
+4. Restart the Next.js server after changing environment variables.
+
+The current report store is a local JSON file at `src/data/shelter-reports.json`, suitable for local development. Production deployments should replace it with a database or managed store before relying on operator reports across multiple instances.
+
+Local accounts require a name, email, and password of at least 8 characters. Passwords are stored as salted `scrypt` hashes in the development-only `src/data/local-accounts.json` file. Use a database-backed identity system for production deployments.

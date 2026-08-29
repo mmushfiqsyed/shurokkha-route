@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-@import "leaflet/dist/leaflet.css";
-
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -31,4 +29,43 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.scrollbar-sleek {
+  scrollbar-color: #a1a1aa transparent;
+  scrollbar-width: thin;
+}
+
+.scrollbar-sleek::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-sleek::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-sleek::-webkit-scrollbar-thumb {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: #a1a1aa;
+}
+
+.dark .scrollbar-sleek {
+  scrollbar-color: #52525b transparent;
+}
+
+.dark .scrollbar-sleek::-webkit-scrollbar-thumb {
+  background-color: #52525b;
+}
+
+@keyframes thoughtIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

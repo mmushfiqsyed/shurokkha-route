@@ -2,12 +2,18 @@
   {
     "id": "rte-001",
     "name": "Dhaka-Mirpur Corridor",
+    "originLocation": "dhaka",
+    "originCoordinates": {
+    "lat": 23.774,
+    "lng": 90.375
+    },
     "path": [
       { "lat": 23.774, "lng": 90.375 },
       { "lat": 23.790, "lng": 90.370 },
       { "lat": 23.810, "lng": 90.368 },
       { "lat": 23.822, "lng": 90.365 }
     ],
+    "destinationShelterId": "shel-002",
     "status": "Safe",
     "lastUpdated": "2026-07-03T06:00:00Z"
   },
@@ -21,6 +27,7 @@
       { "lat": 22.500, "lng": 91.000 },
       { "lat": 22.335, "lng": 91.815 }
     ],
+    "destinationShelterId": "shel-003",
     "status": "Blocked",
     "lastUpdated": "2026-07-03T05:30:00Z"
   },
@@ -33,6 +40,7 @@
       { "lat": 24.500, "lng": 91.000 },
       { "lat": 24.898, "lng": 91.875 }
     ],
+    "destinationShelterId": "shel-004",
     "status": "Flooded",
     "lastUpdated": "2026-07-03T04:00:00Z"
   },
@@ -45,6 +53,7 @@
       { "lat": 22.750, "lng": 90.100 },
       { "lat": 22.701, "lng": 90.353 }
     ],
+    "destinationShelterId": "shel-007",
     "status": "Safe",
     "lastUpdated": "2026-07-03T06:15:00Z"
   },
@@ -57,6 +66,7 @@
       { "lat": 25.300, "lng": 89.000 },
       { "lat": 25.746, "lng": 89.251 }
     ],
+    "destinationShelterId": "shel-008",
     "status": "Blocked",
     "lastUpdated": "2026-07-03T03:45:00Z"
   },
@@ -69,6 +79,7 @@
       { "lat": 23.200, "lng": 89.800 },
       { "lat": 22.845, "lng": 89.540 }
     ],
+    "destinationShelterId": "shel-005",
     "status": "Safe",
     "lastUpdated": "2026-07-03T06:00:00Z"
   }

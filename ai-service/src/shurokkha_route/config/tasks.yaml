@@ -1,0 +1,165 @@
+hazard_assessment_task:
+  description: >
+    Given the following disaster scenario: {scenario}, classify disaster
+    type, severity (1-5), primary risks and zone.
+
+  expected_output: >
+    A structured hazard assessment containing disaster_type, severity from
+    1 to 5, zone, secondary_risks, and notes.
+
+  agent: hazard_agent
+
+
+logistics_and_shelter_task:
+  description: >
+    Given the hazard assessment, user context, and system_state, evaluate
+    the shelters supplied by the system.
+
+    IMPORTANT: The shelter list in system_state is the COMPLETE set of
+    eligible shelter candidates.
+
+    The system has already deterministically removed shelters that are
+    Full, Closed, missing required coordinates, or otherwise operationally invalid.
+
+    Shelter distance is provided as information and may be considered when
+    ranking candidates. A distant shelter must not be treated as locally
+    reachable without appropriate transport.
+
+    Do not search for additional shelters.
+    Do not call or use external shelter lookup information.
+    Do not restore shelters that are absent from system_state.
+    Do not invent capacity, inventory, status, distance, or availability.
+
+    Rank the remaining shelters using availability, capacity, inventory,
+    distance, disaster type, and user requirements.
+
+    Active shelters should generally be preferred over At Risk shelters.
+    At Risk shelters may be retained as alternatives but should not be
+    treated as equivalent to Active shelters.
+
+    System operational data:
+    {system_state}
+
+    User context:
+    {user_context}
+
+  expected_output: >
+    A structured shelter decision containing:
+    recommended_shelter_id,
+    viable_shelters,
+    unavailable_shelters,
+    and notes.
+
+  agent: logistics_and_shelter_agent
+
+  context: [hazard_assessment_task]
+
+routing_and_operations_task:
+  description: >
+    Using the hazard assessment, shelter assessment, and the deterministic
+    operational data supplied by the system, determine which candidate
+    shelter can actually be reached safely.
+
+    IMPORTANT: The route candidates provided by the system have already been
+    filtered for operational status, route type, destination shelter
+    eligibility, and relevance to the user's current location.
+
+    Treat the provided route candidates as authoritative.
+
+    Do not invent routes or reconstruct routes that are not present.
+
+    Only include a route in safe_routes if it is Safe and relevant to
+    the user's current location and destination shelter.
+
+    If no candidate route is safe and relevant, return no selected route.
+
+    If a selected route requires organized_transport or other
+    non-local transport, state this in the routing notes.
+
+    Among the remaining candidates, determine which route and shelter are
+    most appropriate using the hazard assessment, shelter status, capacity,
+    inventory, route information, user mobility, and available assets.
+
+    An Active shelter should generally be preferred over an At Risk shelter
+    when a viable route exists.
+
+    Use only the shelters and routes present in the provided system data.
+
+    System operational data:
+    {system_state}
+
+    Verified routing context:
+    {routing_context}
+
+    User context:
+    {user_context}
+
+  expected_output: >
+    A structured routing assessment containing the selected safe shelter
+    and route if one exists, all safe routes considered, rejected routes,
+    relevant assets, required travel mode, and notes explaining the decision.
+
+  agent: routing_and_operations_agent
+
+  context: [hazard_assessment_task, logistics_and_shelter_task]
+
+commander_task:
+  description: >
+    Using the hazard assessment, shelter assessment, routing assessment,
+    and user's location, determine the safest immediate action.
+
+    Treat the shelter and routing assessments as the available operational
+    information.
+
+
+    Treat this asset information as verified system data.
+    Do not invent additional assets.
+
+    Do not recommend a shelter whose status is At Risk or Full.
+
+    Do not recommend a route whose status is Flooded or Blocked.
+    Do not recommend a route that crosses a water body. Evacuation
+    routes may never cut directly across rivers or water bodies.
+
+    Do not invent shelter availability, route status, rescue assets,
+    emergency assistance, or other resources.
+
+    If no safe destination or route can be established, explicitly state
+    that and recommend the safest immediate action without inventing
+    information.
+
+    If the selected shelter is far enough away that self-evacuation on foot is unrealistic, 
+    explicitly state that organized vehicle or rescue transport is required. 
+    Never imply that a long-distance shelter should be reached on foot.
+
+    Use the route's travelMode when determining whether self-evacuation
+    is appropriate.
+
+    Prioritize life safety above convenience or distance.
+
+  expected_output: >
+    A structured commander's decision containing the priority action,
+    destination if one is verified safe, route if one is verified safe,
+    whether the destination is within local range, whether the decision
+    relied on an already-deployed asset instead of self-evacuation, and
+    a short justification.
+
+  agent: commander
+
+  context: [hazard_assessment_task, logistics_and_shelter_task, routing_and_operations_task]
+
+
+advisory_task:
+  description: >
+    Rewrite the Commander's decision as plain-language guidance for a
+    civilian, given user context: {user_context}.
+
+    Do not add information, resources, assistance, destinations, routes,
+    or actions that are not present in the Commander's decision.
+
+  expected_output: >
+    Short numbered steps in plain language. Include justification only if it is present in the Commander's decision. 
+
+  agent: advisory_agent
+
+  context: [commander_task]
