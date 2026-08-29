@@ -683,7 +683,7 @@ def run_crew(message: str, emit, gps_location=None) -> None:
                 ),
             }
         )
-        _run_demo_crew(parsed, emit, candidate_shelters)
+        
         return
     try:
 
@@ -749,7 +749,7 @@ def run_crew(message: str, emit, gps_location=None) -> None:
                     ),
                 }
             )
-            _run_demo_crew(parsed, emit, candidate_shelters)
+            
         else:
             emit({"type": "result", "data": payload})
             emit({"type": "crew_end"})
@@ -818,15 +818,36 @@ def _build_result_payload(parsed: dict, result) -> dict:
 
     advisory_task = pick("advisory")
     advisory_text = ""
-    if advisory_task is not None:
+
+    # Prefer the structured Pydantic Advisory output.
+    if advisory and isinstance(advisory.get("steps"), list):
+        steps = [
+            str(step).strip()
+            for step in advisory["steps"]
+            if str(step).strip()
+        ]
+
+        advisory_text = "\n".join(
+            f"{index}. {step}"
+            for index, step in enumerate(steps, start=1)
+        )
+
+    # Fallback to raw CrewAI output only if structured output was unavailable.
+    if not advisory_text and advisory_task is not None:
         raw = getattr(advisory_task, "raw", None) or ""
         advisory_text = str(raw).strip()
 
     summary = advisory_text
+
     if not summary and commander:
-        summary = commander.get("justification", "")
+        summary = str(
+            commander.get("justification", "")
+        ).strip()
+
     if not summary and advisory and advisory.get("steps"):
-        summary = " ".join(str(s) for s in advisory["steps"])
+        summary = " ".join(
+            str(step) for step in advisory["steps"]
+        )
 
     return {
         "scenario": {

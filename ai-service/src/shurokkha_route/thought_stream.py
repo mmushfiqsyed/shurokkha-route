@@ -67,7 +67,7 @@ def _role(event: Any) -> str:
     return "Agent"
 
 
-def _trim(value: Any, limit: int = 800) -> str:
+def _trim(value: Any, limit: int = 2000) -> str:
     if value is None:
         return ""
     if not isinstance(value, str):
@@ -152,7 +152,7 @@ class ThoughtListener(BaseEventListener):
                 {
                     "type": "agent_end",
                     "agent": _role(event),
-                    "output": _trim(output, 400),
+                    "output": _trim(output, 2000),
                 }
             )
 

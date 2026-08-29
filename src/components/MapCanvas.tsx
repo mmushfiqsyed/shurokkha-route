@@ -13,12 +13,22 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import type { CalculationStep, Coordinates, Recommendation } from "@/types";
-import type { Shelter, Route, Asset } from "@/types";
+import type {
+  CalculationStep,
+  Coordinates,
+  Recommendation,
+  Shelter,
+  Route,
+  Asset,
+} from "@/types";
 import sheltersJson from "@/data/shelters.json";
 import routesJson from "@/data/routes.json";
 import assetsJson from "@/data/assets.json";
-import { distanceKm, routeCrossesWater, waterBodiesData } from "@/lib/geo";
+import {
+  distanceKm,
+  routeCrossesWater,
+  waterBodiesData,
+} from "@/lib/geo";
 
 const sheltersData = sheltersJson as Shelter[];
 const routesData = routesJson as Route[];
@@ -86,6 +96,7 @@ function MapController({
         recommendedShelter.coordinates.lat,
         recommendedShelter.coordinates.lng,
       ];
+
       map.flyTo(center, 10, { duration: 1.5 });
     }
   }, [recommendedShelter, map]);
@@ -93,7 +104,12 @@ function MapController({
   useEffect(() => {
     if (userLocation && !centeredOnUser.current) {
       centeredOnUser.current = true;
-      map.flyTo([userLocation.lat, userLocation.lng], 11, { duration: 1.2 });
+
+      map.flyTo(
+        [userLocation.lat, userLocation.lng],
+        11,
+        { duration: 1.2 }
+      );
     }
   }, [map, userLocation]);
 
@@ -106,57 +122,148 @@ interface MapCanvasProps {
   onLocationChange: (location: Coordinates | null) => void;
 }
 
-export default function MapCanvas({ steps, recommendation, onLocationChange }: MapCanvasProps) {
-  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [locationStatus, setLocationStatus] = useState<"idle" | "locating" | "active" | "error">("idle");
-  const [locationError, setLocationError] = useState<string | null>(null);
+export default function MapCanvas({
+  steps,
+  recommendation,
+  onLocationChange,
+}: MapCanvasProps) {
+  const [userLocation, setUserLocation] =
+    useState<UserLocation | null>(null);
+
+  const [locationStatus, setLocationStatus] =
+    useState<"idle" | "locating" | "active" | "error">("idle");
+
+  const [locationError, setLocationError] =
+    useState<string | null>(null);
+
   const watchId = useRef<number | null>(null);
 
-  const disasterCoords: { lat: number; lng: number } | null = steps.length > 0
-    ? ((steps[0].data as Record<string, unknown>)?.coords as { lat: number; lng: number } | undefined) ?? null
-    : null;
-  const locationSource = steps.length > 0
-    ? ((steps[0].data as Record<string, unknown>)?.locationSource as "mentioned" | "live" | undefined) ?? "mentioned"
-    : "mentioned";
-  const routeOrigin = locationSource === "live" ? userLocation : disasterCoords;
+  /*
+   * Scenario data comes from the first calculation step.
+   */
+  const scenarioData =
+    steps.length > 0
+      ? (steps[0].data as Record<string, unknown>)
+      : {};
 
-  const recommendedShelter = recommendation?.shelter ?? null;
-  const recommendedRoute = recommendation?.route ?? null;
-  const recommendedAssets = recommendation?.assets ?? [];
-  const recommendedRouteCrossing = recommendedRoute ? routeCrossesWater(recommendedRoute) : null;
+  /*
+   * This is the DISASTER location.
+   */
+  const disasterCoords =
+    (scenarioData?.coords as
+      | { lat: number; lng: number }
+      | undefined) ?? null;
+
+  /*
+   * This is the USER'S location captured when the scenario
+   * was submitted with "use my current location".
+   */
+  const scenarioUserCoords =
+    (scenarioData?.userCoords as
+      | { lat: number; lng: number }
+      | undefined) ?? null;
+
+  const locationSource =
+    (scenarioData?.locationSource as
+      | "mentioned"
+      | "live"
+      | undefined) ?? "mentioned";
+
+  /*
+   * IMPORTANT:
+   * Prefer the coordinates captured with the scenario.
+   * Fall back to the map's live GPS state.
+   */
+  const routeOrigin =
+    locationSource === "live"
+      ? scenarioUserCoords ?? userLocation
+      : disasterCoords;
+
+  const recommendedShelter =
+    recommendation?.shelter ?? null;
+
+  const recommendedRoute =
+    recommendation?.route ?? null;
+
+  const recommendedAssets =
+    recommendation?.assets ?? [];
+
+  const recommendedRouteCrossing =
+    recommendedRoute
+      ? routeCrossesWater(recommendedRoute)
+      : null;
+
   function locateUser() {
     if (!navigator.geolocation) {
       setLocationStatus("error");
-      setLocationError("Geolocation is not supported by this browser.");
+      setLocationError(
+        "Geolocation is not supported by this browser."
+      );
       return;
     }
 
-    if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
+    if (watchId.current !== null) {
+      navigator.geolocation.clearWatch(
+        watchId.current
+      );
+    }
+
     setLocationStatus("locating");
     setLocationError(null);
-    watchId.current = navigator.geolocation.watchPosition(
-      (position) => {
-        setUserLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-        });
-        onLocationChange({ lat: position.coords.latitude, lng: position.coords.longitude });
-        setLocationStatus("active");
-      },
-      (error) => {
-        if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
-        watchId.current = null;
-        setLocationStatus("error");
-        setLocationError(error.code === error.PERMISSION_DENIED ? "Location permission was denied." : "Unable to get your location.");
-      },
-      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 15_000 }
-    );
+
+    watchId.current =
+      navigator.geolocation.watchPosition(
+        (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          };
+
+          setUserLocation(location);
+
+          onLocationChange({
+            lat: location.lat,
+            lng: location.lng,
+          });
+
+          setLocationStatus("active");
+        },
+        (error) => {
+          if (watchId.current !== null) {
+            navigator.geolocation.clearWatch(
+              watchId.current
+            );
+          }
+
+          watchId.current = null;
+
+          setLocationStatus("error");
+
+          setLocationError(
+            error.code === error.PERMISSION_DENIED
+              ? "Location permission was denied."
+              : "Unable to get your location."
+          );
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 10_000,
+          timeout: 15_000,
+        }
+      );
   }
 
-  useEffect(() => () => {
-    if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
-  }, [onLocationChange]);
+  useEffect(
+    () => () => {
+      if (watchId.current !== null) {
+        navigator.geolocation.clearWatch(
+          watchId.current
+        );
+      }
+    },
+    [onLocationChange]
+  );
 
   const checkedRouteIds: Set<string> = new Set();
   const checkedShelterIds: Set<string> = new Set();
@@ -168,31 +275,87 @@ export default function MapCanvas({ steps, recommendation, onLocationChange }: M
       step.type === "route_blocked" ||
       step.type === "route_selected"
     ) {
-      const routeId = step.data?.routeId as string | undefined;
-      if (routeId) checkedRouteIds.add(routeId);
+      const routeId =
+        step.data?.routeId as string | undefined;
+
+      if (routeId) {
+        checkedRouteIds.add(routeId);
+      }
     }
-    if (step.type === "shelter_selected" || step.type === "shelter_evaluation") {
-      const shelterId = step.data?.shelterId as string | undefined;
-      if (shelterId) checkedShelterIds.add(shelterId);
-      const viableDetails = step.data?.viableDetails as Shelter[] | undefined;
+
+    if (
+      step.type === "shelter_selected" ||
+      step.type === "shelter_evaluation"
+    ) {
+      const shelterId =
+        step.data?.shelterId as string | undefined;
+
+      if (shelterId) {
+        checkedShelterIds.add(shelterId);
+      }
+
+      const viableDetails =
+        step.data?.viableDetails as
+          | Shelter[]
+          | undefined;
+
       if (viableDetails) {
-        for (const s of viableDetails) checkedShelterIds.add(s.id);
+        for (const shelter of viableDetails) {
+          checkedShelterIds.add(shelter.id);
+        }
       }
-      const unavailableDetails = step.data?.unavailableDetails as Shelter[] | undefined;
+
+      const unavailableDetails =
+        step.data?.unavailableDetails as
+          | Shelter[]
+          | undefined;
+
       if (unavailableDetails) {
-        for (const s of unavailableDetails) checkedShelterIds.add(s.id);
+        for (const shelter of unavailableDetails) {
+          checkedShelterIds.add(shelter.id);
+        }
       }
     }
+
     if (step.type === "asset_check") {
-      const assets = step.data?.assets as Asset[] | undefined;
+      const assets =
+        step.data?.assets as Asset[] | undefined;
+
       if (assets) {
-        for (const a of assets) checkedAssetIds.add(a.id);
+        for (const asset of assets) {
+          checkedAssetIds.add(asset.id);
+        }
       }
     }
   }
 
+  /*
+   * For a live-location scenario, build the displayed
+   * recommended route starting from the user's location.
+   *
+   * We keep the original route points intact after the
+   * first point. This means we are NOT changing the AI's
+   * selected route; we're only connecting the user to it.
+   */
+  const displayedRecommendedRoute =
+    recommendedRoute && routeOrigin
+      ? {
+          ...recommendedRoute,
+          path: [
+            {
+              lat: routeOrigin.lat,
+              lng: routeOrigin.lng,
+            },
+            ...recommendedRoute.path,
+          ],
+        }
+      : recommendedRoute;
+
   return (
-    <div className="relative flex-1" style={{ minHeight: 0 }}>
+    <div
+      className="relative flex-1"
+      style={{ minHeight: 0 }}
+    >
       <div className="absolute left-3 top-3 z-[1000] w-fit max-w-[min(20rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 bg-white/95 p-1 shadow-lg backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
         <button
           type="button"
@@ -200,41 +363,78 @@ export default function MapCanvas({ steps, recommendation, onLocationChange }: M
           disabled={locationStatus === "locating"}
           className="cursor-pointer whitespace-nowrap rounded-md bg-green-600 px-2 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-wait disabled:opacity-60"
         >
-          {locationStatus === "locating" ? "Finding your location..." : "Use my live location"}
+          {locationStatus === "locating"
+            ? "Finding your location..."
+            : "Use my live location"}
         </button>
-        {locationStatus === "active" && recommendedShelter && userLocation && (
-          <p className="mt-2 text-xs leading-relaxed text-zinc-700 dark:text-zinc-200">
-            AI-selected safe shelter: <strong>{recommendedShelter.name}</strong> ({distanceKm(userLocation, recommendedShelter.coordinates).toFixed(1)} km)
+
+        {locationStatus === "active" &&
+          recommendedShelter &&
+          userLocation && (
+            <p className="mt-2 text-xs leading-relaxed text-zinc-700 dark:text-zinc-200">
+              AI-selected safe shelter:{" "}
+              <strong>
+                {recommendedShelter.name}
+              </strong>{" "}
+              (
+              {distanceKm(
+                userLocation,
+                recommendedShelter.coordinates
+              ).toFixed(1)}{" "}
+              km)
+            </p>
+          )}
+
+        {locationStatus === "active" &&
+          !recommendedShelter && (
+            <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+              Waiting for the AI to select a safe shelter.
+            </p>
+          )}
+
+        {locationError && (
+          <p className="mt-2 text-xs text-red-600 dark:text-red-300">
+            {locationError}
           </p>
         )}
-        {locationStatus === "active" && !recommendedShelter && (
-          <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Waiting for the AI to select a safe shelter.</p>
-        )}
-        {locationError && <p className="mt-2 text-xs text-red-600 dark:text-red-300">{locationError}</p>}
       </div>
+
       <MapContainer
         center={DEFAULT_CENTER}
         zoom={DEFAULT_ZOOM}
         zoomControl={false}
         attributionControl={false}
         className="h-full w-full"
-        style={{ height: "100%", width: "100%" }}
+        style={{
+          height: "100%",
+          width: "100%",
+        }}
         maxBounds={BANGLADESH_BOUNDS}
         maxBoundsViscosity={1.0}
       >
         <AttributionControl position="bottomleft" />
         <ZoomControl position="bottomleft" />
+
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <MapController recommendedShelter={recommendedShelter} userLocation={userLocation} />
+        <MapController
+          recommendedShelter={recommendedShelter}
+          userLocation={userLocation}
+        />
 
         {waterBodiesData.map((water) => (
           <Polyline
             key={water.id}
-            positions={water.path.map((p) => [p.lat, p.lng] as [number, number])}
+            positions={water.path.map(
+              (p) =>
+                [p.lat, p.lng] as [
+                  number,
+                  number
+                ]
+            )}
             color="#60a5fa"
             weight={3}
             opacity={0.55}
@@ -244,37 +444,41 @@ export default function MapCanvas({ steps, recommendation, onLocationChange }: M
         ))}
 
         {disasterCoords && (
-          <Marker position={[disasterCoords.lat, disasterCoords.lng]} icon={DISASTER_ICON}>
-            <Popup>Disaster Location</Popup>
+          <Marker
+            position={[
+              disasterCoords.lat,
+              disasterCoords.lng,
+            ]}
+            icon={DISASTER_ICON}
+          >
+            <Popup>
+              Disaster Location
+            </Popup>
           </Marker>
         )}
 
         {userLocation && (
-          <Marker position={[userLocation.lat, userLocation.lng]} icon={USER_ICON}>
-            <Popup>You are here (accuracy: {Math.round(userLocation.accuracy)} m)</Popup>
+          <Marker
+            position={[
+              userLocation.lat,
+              userLocation.lng,
+            ]}
+            icon={USER_ICON}
+          >
+            <Popup>
+              You are here (accuracy:{" "}
+              {Math.round(userLocation.accuracy)} m)
+            </Popup>
           </Marker>
         )}
 
-        {routeOrigin && recommendedShelter && (
-          <Polyline
-            positions={[
-              [routeOrigin.lat, routeOrigin.lng],
-              [recommendedShelter.coordinates.lat, recommendedShelter.coordinates.lng],
-            ]}
-            color="#2563eb"
-            weight={5}
-            opacity={0.9}
-            dashArray="10 8"
-          >
-            <Popup>
-              {locationSource === "live" ? "Live location" : "Mentioned location"} to {recommendedShelter.name} ({distanceKm(routeOrigin, recommendedShelter.coordinates).toFixed(1)} km straight-line distance)
-            </Popup>
-          </Polyline>
-        )}
-
         {sheltersData.map((shelter) => {
-          const isRecommended = recommendedShelter?.id === shelter.id;
-          const wasChecked = checkedShelterIds.has(shelter.id);
+          const isRecommended =
+            recommendedShelter?.id === shelter.id;
+
+          const wasChecked =
+            checkedShelterIds.has(shelter.id);
+
           const icon = isRecommended
             ? SHELTER_ICON
             : wasChecked
@@ -292,16 +496,24 @@ export default function MapCanvas({ steps, recommendation, onLocationChange }: M
                   iconSize: [10, 10],
                   iconAnchor: [5, 5],
                 });
-          const remaining = shelter.maxCapacity - shelter.currentCapacity;
+
+          const remaining =
+            shelter.maxCapacity -
+            shelter.currentCapacity;
+
           const popupLabel = isRecommended
             ? `★ RECOMMENDED: ${shelter.name} — ${shelter.status} (${shelter.currentCapacity}/${shelter.maxCapacity}, ${remaining} spots)`
             : wasChecked
               ? `${shelter.name} — ${shelter.status} (${shelter.currentCapacity}/${shelter.maxCapacity})`
               : `${shelter.name} — ${shelter.status}`;
+
           return (
             <Marker
               key={shelter.id}
-              position={[shelter.coordinates.lat, shelter.coordinates.lng]}
+              position={[
+                shelter.coordinates.lat,
+                shelter.coordinates.lng,
+              ]}
               icon={icon}
             >
               <Popup>{popupLabel}</Popup>
@@ -310,21 +522,60 @@ export default function MapCanvas({ steps, recommendation, onLocationChange }: M
         })}
 
         {routesData.map((route) => {
-          const crossing = routeCrossesWater(route);
-          const isRecommended = recommendedRoute?.id === route.id;
-          const isChecked = checkedRouteIds.has(route.id);
-          const hasRecommendation = !!recommendedRoute;
+          const crossing =
+            routeCrossesWater(route);
+
+          const isRecommended =
+            recommendedRoute?.id === route.id;
+
+          const isChecked =
+            checkedRouteIds.has(route.id);
+
+          const hasRecommendation =
+            !!recommendedRoute;
 
           if (isRecommended) {
-            const color = recommendedRouteCrossing ? "#dc2626" : "#22c55e";
-            const dashArray = recommendedRouteCrossing ? "6 8" : undefined;
-            const popupText = recommendedRouteCrossing
-              ? `${route.name} — BLOCKED: crosses ${recommendedRouteCrossing.name}.`
-              : `★ Recommended: ${route.name} — ${route.status}`;
+            const color =
+              recommendedRouteCrossing
+                ? "#dc2626"
+                : "#22c55e";
+
+            const dashArray =
+              recommendedRouteCrossing
+                ? "6 8"
+                : undefined;
+
+            const popupText =
+              recommendedRouteCrossing
+                ? `${route.name} — BLOCKED: crosses ${recommendedRouteCrossing.name}.`
+                : `★ Recommended: ${route.name} — ${route.status}`;
+
             return (
               <Polyline
                 key="recommended-route"
-                positions={route.path.map((p) => [p.lat, p.lng] as [number, number])}
+                positions={
+                  displayedRecommendedRoute
+                    ? displayedRecommendedRoute.path.map(
+                        (p) =>
+                          [
+                            p.lat,
+                            p.lng,
+                          ] as [
+                            number,
+                            number
+                          ]
+                      )
+                    : route.path.map(
+                        (p) =>
+                          [
+                            p.lat,
+                            p.lng,
+                          ] as [
+                            number,
+                            number
+                          ]
+                      )
+                }
                 color={color}
                 weight={6}
                 opacity={1}
@@ -338,15 +589,32 @@ export default function MapCanvas({ steps, recommendation, onLocationChange }: M
           if (hasRecommendation) return null;
 
           if (isChecked) {
-            const color = route.status === "Safe" ? "#3b82f6" : "#ef4444";
-            const dashArray = route.status !== "Safe" ? "8 8" : crossing ? "6 8" : undefined;
+            const color =
+              route.status === "Safe"
+                ? "#3b82f6"
+                : "#ef4444";
+
+            const dashArray =
+              route.status !== "Safe"
+                ? "8 8"
+                : crossing
+                  ? "6 8"
+                  : undefined;
+
             const popupText = crossing
               ? `${route.name} — BLOCKED: crosses ${crossing.name}.`
               : `${route.name} — ${route.status}`;
+
             return (
               <Polyline
                 key={route.id}
-                positions={route.path.map((p) => [p.lat, p.lng] as [number, number])}
+                positions={route.path.map(
+                  (p) =>
+                    [
+                      p.lat,
+                      p.lng,
+                    ] as [number, number]
+                )}
                 color={color}
                 weight={3}
                 opacity={0.5}
@@ -360,35 +628,71 @@ export default function MapCanvas({ steps, recommendation, onLocationChange }: M
           return null;
         })}
 
-        {recommendedRoute && disasterCoords && (() => {
-          const routeStart = recommendedRoute.path[0];
-          const dist = Math.hypot(
-            routeStart.lat - disasterCoords.lat,
-            routeStart.lng - disasterCoords.lng
-          );
-          if (dist < 0.05) return null;
-          return (
-            <Polyline
-              key="disaster-to-route"
-              positions={[
-                [disasterCoords.lat, disasterCoords.lng] as [number, number],
-                [routeStart.lat, routeStart.lng] as [number, number],
-              ]}
-              color="#f59e0b"
-              weight={4}
-              opacity={0.9}
-              dashArray="6 6"
-            >
-              <Popup>Connecting path from disaster location to route start</Popup>
-            </Polyline>
-          );
-        })()}
+        {recommendedRoute &&
+          routeOrigin &&
+          (() => {
+            const routeStart =
+              recommendedRoute.path[0];
+
+            const dist = Math.hypot(
+              routeStart.lat -
+                routeOrigin.lat,
+              routeStart.lng -
+                routeOrigin.lng
+            );
+
+            if (dist < 0.05) return null;
+
+            const usingLiveLocation =
+              locationSource === "live";
+
+            return (
+              <Polyline
+                key="origin-to-route"
+                positions={[
+                  [
+                    routeOrigin.lat,
+                    routeOrigin.lng,
+                  ] as [number, number],
+                  [
+                    routeStart.lat,
+                    routeStart.lng,
+                  ] as [number, number],
+                ]}
+                color={
+                  usingLiveLocation
+                    ? "#2563eb"
+                    : "#f59e0b"
+                }
+                weight={4}
+                opacity={0.9}
+                dashArray="6 6"
+              >
+                <Popup>
+                  {usingLiveLocation
+                    ? "Your live location to the recommended route"
+                    : "Disaster location to the recommended route"}
+                </Popup>
+              </Polyline>
+            );
+          })()}
 
         {assetsData.map((asset) => {
-          const isRecommended = recommendedAssets.some((a) => a.id === asset.id);
-          const isChecked = checkedAssetIds.has(asset.id);
-          const shouldShow = isRecommended || isChecked || !recommendation;
+          const isRecommended =
+            recommendedAssets.some(
+              (a) => a.id === asset.id
+            );
+
+          const isChecked =
+            checkedAssetIds.has(asset.id);
+
+          const shouldShow =
+            isRecommended ||
+            isChecked ||
+            !recommendation;
+
           if (!shouldShow) return null;
+
           const icon = isRecommended
             ? ASSET_ICON
             : L.divIcon({
@@ -398,10 +702,19 @@ export default function MapCanvas({ steps, recommendation, onLocationChange }: M
                 iconSize: [10, 10],
                 iconAnchor: [5, 5],
               });
+
           return (
-            <Marker key={asset.id} position={[asset.coordinates.lat, asset.coordinates.lng]} icon={icon}>
+            <Marker
+              key={asset.id}
+              position={[
+                asset.coordinates.lat,
+                asset.coordinates.lng,
+              ]}
+              icon={icon}
+            >
               <Popup>
-                {asset.name} — {asset.type} ({asset.status})
+                {asset.name} — {asset.type} (
+                {asset.status})
                 {isRecommended ? " ★" : ""}
               </Popup>
             </Marker>
